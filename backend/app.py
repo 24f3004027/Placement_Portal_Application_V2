@@ -8,9 +8,11 @@ from flask_jwt_extended import (
     get_jwt_identity,
     get_jwt
 )
+from flask_cors import CORS
 
 #Making the Flask and SQLALchemy Instances
 app = Flask(__name__)
+CORS(app)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///placement.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
