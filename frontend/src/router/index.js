@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory } from "vue-router"
 
-import Welcome from "../views/Welcome.vue"
-import Login from "../views/Login.vue"
-import Register from "../views/Register.vue"
+import Welcome from "../views/welcome.vue"
+import Login from "../views/login.vue"
+import Register from "../views/register.vue"
 import AdminDashboard from "../views/AdminDashboard.vue"
 import StudentDashboard from "../views/StudentDashboard.vue"
 import CompanyDashboard from "../views/CompanyDashboard.vue"

@@ -1,91 +1,87 @@
-# Placement Portal Application (V2)
+# 🎓 Placement Portal Application (V2)
 
-A full-stack web application designed to streamline and manage the campus placement process.  
-This platform connects **students**, **recruiters**, and **administrators** through a unified system for job postings, applications, and placement tracking.
-
----
-
-## 🚀 Features
-
-### 👨‍🎓 Student Module
-- Student profile creation and management
-- View available job opportunities
-- Apply to companies and track application status
-
-### 🏢 Recruiter Module
-- Company profile management
-- Job posting and updates
-- View and manage student applications
-
-### 🛠 Admin Module
-- Manage students and recruiters
-- Control job listings and placement drives
-- Monitor overall placement statistics
+A full-stack web application designed to streamline the campus placement process.  
+This platform connects **Students**, **Companies**, and **Administrators** through a unified system for authentication, job management, and application tracking.
 
 ---
 
-## 🏗 Project Structure (Planned)
+## 🚀 Core Features
+
+### 👨‍🎓 Student
+- Secure JWT-based login
+- Role-protected dashboard access
+- Apply for jobs
+- Track application status
+
+### 🏢 Company
+- Company account registration
+- Admin approval required before activation
+- Access to company dashboard
+- Manage job applications
+
+### 🛠 Admin
+- Predefined admin account
+- Approve company registrations
+- Role-based dashboard control
+- System-level access management
+
+---
+
+## 🔐 Authentication & Authorization
+
+- Password hashing using `werkzeug.security`
+- JWT authentication via `flask-jwt-extended`
+- Role-based access control:
+  - `student`
+  - `company`
+  - `admin`
+- Company accounts require admin approval before login
+
+---
+
+## 🏗 Project Structure
 
 Placement_Portal_Application_V2/
 │
-├── backend/ # Server-side logic (Flask/Django/Node)
-├── frontend/ # Client-side application (React/Vue/HTML)
-├── database/ # Database schemas and migrations
-├── docs/ # Documentation and design files
-├── .gitignore
-└── README.md
+├── backend/
+│ ├── app.py
+│ ├── instance/ 
+|
+├── frontend/
+│ ├── src/
+│ ├── package.json
+│ ├── package-lock.json
+│ ├── vite.config.js
+│
+├── requirements.txt
+├── README.md
+└── .gitignore
+
 
 ---
 
-## 🧰 Tech Stack (Planned)
+## 🧰 Tech Stack
 
-- **Frontend:** HTML, CSS, JavaScript (React / Vue)
-- **Backend:** Python (Flask / Django) or Node.js
-- **Database:** PostgreSQL / MySQL / SQLite
-- **Authentication:** Session / JWT-based authentication
-- **Version Control:** Git & GitHub
+### Backend
+- Python 3
+- Flask
+- Flask-SQLAlchemy
+- Flask-JWT-Extended
+- Flask-CORS
+- SQLite (Development)
 
-> The tech stack may evolve as development progresses.
-
----
-
-## ⚙️ Setup Instructions (Coming Soon)
-
-Instructions for:
-- Environment setup
-- Virtual environment configuration
-- Dependency installation
-- Running backend and frontend locally
+### Frontend
+- Vue 3
+- Vite
+- Axios
 
 ---
 
-## 📌 Project Status
+## ⚙️ Backend Setup
 
-🟡 **In Active Development (Version 2)**  
-This version focuses on:
-- Better project structure
-- Scalability
-- Cleaner backend–frontend separation
-- Improved user experience
+### 1️⃣ Create Virtual Environment
 
----
-
-## 🎯 Goals
-
-- Build a real-world, scalable placement management system
-- Apply full-stack development best practices
-- Serve as an academic and portfolio-ready project
-
----
-
-## 🤝 Contributing
-
-This is currently a personal/academic project.  
-Contributions, suggestions, and improvements are welcome via issues or pull requests.
-
----
-
-## 📄 License
-
-This project is for educational purposes.  
-License details will be added later.
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
