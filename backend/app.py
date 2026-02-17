@@ -140,9 +140,9 @@ def login():
         additional_claims = {"role": usr.role}
     )
     return jsonify({
-        "msg": 'Login Successful',
-        "access_token": access_token,
-        "role": usr.role
+    "access_token": access_token,
+    "role": usr.role,
+    "name": usr.name 
     }), 200
 
 @app.route('/student/dashboard' , methods = ['GET'])
