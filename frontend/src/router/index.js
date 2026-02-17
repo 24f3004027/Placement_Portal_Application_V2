@@ -35,8 +35,7 @@ const router = createRouter({
   routes
 })
 
-
-//Added a Route Guard to prevent unauth Admin Access
+//Added a Route Guard to prevent unauthorized access
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem("token")
   const role = localStorage.getItem("role")
