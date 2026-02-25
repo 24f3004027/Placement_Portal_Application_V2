@@ -12,7 +12,12 @@ from flask_cors import CORS
 
 #Making the Flask and SQLALchemy Instances
 app = Flask(__name__)
-CORS(app)
+
+CORS(app, resources={r"/*": {
+    "origins": "*",
+    "methods": ["GET", "POST", "OPTIONS"],
+    "allow_headers": ["Content-Type", "Authorization"]
+}})
 
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///placement.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -67,6 +72,17 @@ class Job_Application(db.Model):
     # Many-to-one with Company thereby Creating the Many to Many Relation
     company_id = db.Column(db.Integer, db.ForeignKey("company.c_id"), nullable=False)
     company_br = db.relationship("CompanyProfile", back_populates="job_applications")
+
+class Job(db.Model):
+    __tablename__ = "job"
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(150), nullable=False)
+    location = db.Column(db.String(150))
+    salary = db.Column(db.Integer)
+    description = db.Column(db.Text)
+
+    company_id = db.Column(db.Integer, db.ForeignKey("user.ids"))
 
 
 @app.route('/',methods = ['GET','POST'])
@@ -136,7 +152,7 @@ def login():
         return jsonify({'msg': 'Account not approved yet'}), 403
 
     access_token = create_access_token(
-        identity = usr.ids,
+        identity = str(usr.ids),
         additional_claims = {"role": usr.role}
     )
     return jsonify({
@@ -168,13 +184,17 @@ def admin_dashboard():
     claims = get_jwt()
 
     if claims['role'] != 'admin':
-        return jsonify({
-            'msg': 'Unauthorized'
-        }), 403
+        return jsonify({'msg': 'Unauthorized'}), 403
+    
+    students = User.query.filter_by(role='student').all()
+    companies = User.query.filter_by(role='company').all()
     
     return jsonify({
         'msg': 'Welcome Admin',
-        'user_id' : user_id
+        'user_id' : user_id,
+        # SEND THE LISTS TO VUE
+        'students': [{'ids': s.ids, 'name': s.name, 'email': s.email} for s in students],
+        'companies': [{'ids': c.ids, 'name': c.name, 'email': c.email, 'is_approved': c.is_approved} for c in companies]
     })
 
 @app.route('/company/dashboard', methods=['GET'])
@@ -186,9 +206,12 @@ def company_dashboard():
     if claims['role'] != 'company':
         return jsonify({'msg': 'Unauthorized'}), 403
 
+    user = User.query.get(user_id)
+
     return jsonify({
-        'msg': 'Welcome Company',
-        'user_id': user_id
+        "company_name": user.name,
+        "jobs_posted": 0,
+        "candidates_applied": 0
     })
 
 #Admin Will Approve the Company
@@ -209,6 +232,140 @@ def approve_company(user_id):
     db.session.commit()
 
     return jsonify({'msg': 'Company approved successfully'})
+
+@app.route("/company/jobs", methods=["POST"])
+@jwt_required()
+def create_job():
+    user_id = get_jwt_identity()
+    claims = get_jwt()
+
+    if claims["role"] != "company":
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    data = request.get_json()
+
+    job = Job(
+        title=data["title"],
+        location=data["location"],
+        salary=data["salary"],
+        description=data["description"],
+        company_id=user_id
+    )
+
+    db.session.add(job)
+    db.session.commit()
+
+    return jsonify({"msg": "Job created"}), 201
+
+@app.route("/company/jobs", methods=["GET"])
+@jwt_required()
+def get_jobs():
+    user_id = get_jwt_identity()
+    claims = get_jwt()
+
+    if claims["role"] != "company":
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    jobs = Job.query.filter_by(company_id=user_id).all()
+
+    return jsonify([
+        {
+            "id": j.id,
+            "title": j.title,
+            "location": j.location,
+            "salary": j.salary,
+            "description": j.description,
+            "applicants": [],
+            "shortlisted": []
+        }
+        for j in jobs
+    ])
+
+@app.route("/company/jobs/<int:job_id>", methods=["DELETE"])
+@jwt_required()
+def delete_job(job_id):
+    user_id = get_jwt_identity()
+    claims = get_jwt()
+
+    if claims["role"] != "company":
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    job = Job.query.filter_by(id=job_id, company_id=user_id).first()
+
+    if not job:
+        return jsonify({"msg": "Not found"}), 404
+
+    db.session.delete(job)
+    db.session.commit()
+
+    return jsonify({"msg": "Deleted"})
+
+@app.route("/company/jobs/<int:job_id>", methods=["PUT"])
+@jwt_required()
+def update_job(job_id):
+    user_id = get_jwt_identity()
+    claims = get_jwt()
+
+    if claims["role"] != "company":
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    job = Job.query.filter_by(id=job_id, company_id=user_id).first()
+
+    if not job:
+        return jsonify({"msg": "Not found"}), 404
+
+    data = request.get_json()
+
+    job.title = data["title"]
+    job.location = data["location"]
+    job.salary = data["salary"]
+    job.description = data["description"]
+
+    db.session.commit()
+
+    return jsonify({"msg": "Updated"})
+
+@app.route('/company/profile', methods=['GET'])
+@jwt_required()
+def get_company_profile():
+    user_id = get_jwt_identity()
+    claims = get_jwt()
+
+    if claims['role'] != 'company':
+        return jsonify({'msg': 'Unauthorized'}), 403
+
+    user = User.query.get(user_id)
+
+    return jsonify({
+        "name": user.name,
+        "email": user.email
+    })
+
+
+@app.route('/company/profile', methods=['PUT'])
+@jwt_required()
+def update_company_profile():
+    user_id = get_jwt_identity()
+    claims = get_jwt()
+
+    if claims['role'] != 'company':
+        return jsonify({'msg': 'Unauthorized'}), 403
+
+    user = User.query.get(user_id)
+    data = request.get_json()
+
+    if "name" in data:
+        user.name = data["name"]
+
+    if "email" in data:
+        user.email = data["email"]
+
+    if "password" in data and data["password"]:
+        user.password = generate_password_hash(data["password"])
+
+    db.session.commit()
+
+    return jsonify({"msg": "Profile updated successfully"})
 
 if __name__ == '__main__':
     with app.app_context():
