@@ -12,6 +12,7 @@
       <div class="card">
         <h3>Jobs Posted</h3>
         <p>{{ jobs.length }}</p>
+        <br><br>
       </div>
     </div>
     <button @click="showProfile = !showProfile" class="create-btn">

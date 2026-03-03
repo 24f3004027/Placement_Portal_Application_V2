@@ -15,7 +15,7 @@ app = Flask(__name__)
 
 CORS(app, resources={r"/*": {
     "origins": "*",
-    "methods": ["GET", "POST", "OPTIONS"],
+    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     "allow_headers": ["Content-Type", "Authorization"]
 }})
 
@@ -83,6 +83,11 @@ class Job(db.Model):
     description = db.Column(db.Text)
 
     company_id = db.Column(db.Integer, db.ForeignKey("user.ids"))
+
+
+@jwt.unauthorized_loader
+def missing_token_callback(err):
+    return jsonify({"msg": "Missing or invalid token"}), 401
 
 
 @app.route('/',methods = ['GET','POST'])
@@ -293,12 +298,15 @@ def delete_job(job_id):
     job = Job.query.filter_by(id=job_id, company_id=user_id).first()
 
     if not job:
-        return jsonify({"msg": "Not found"}), 404
+        return jsonify({"msg": "Job not found or not owned by company"}), 404
 
     db.session.delete(job)
     db.session.commit()
 
-    return jsonify({"msg": "Deleted"})
+    return jsonify({
+        "msg": "Job deleted successfully",
+        "deleted_job_id": job_id
+    }), 200
 
 @app.route("/company/jobs/<int:job_id>", methods=["PUT"])
 @jwt_required()
@@ -312,18 +320,39 @@ def update_job(job_id):
     job = Job.query.filter_by(id=job_id, company_id=user_id).first()
 
     if not job:
-        return jsonify({"msg": "Not found"}), 404
+        return jsonify({"msg": "Job not found"}), 404
 
     data = request.get_json()
+    if not data:
+        return jsonify({"msg": "Invalid JSON"}), 400
 
-    job.title = data["title"]
-    job.location = data["location"]
-    job.salary = data["salary"]
-    job.description = data["description"]
+    # Validate fields
+    if "title" in data:
+        if not data["title"].strip():
+            return jsonify({"msg": "Title cannot be empty"}), 400
+        job.title = data["title"].strip()
+
+    if "location" in data:
+        job.location = data["location"].strip()
+
+    if "salary" in data:
+        try:
+            salary = int(data["salary"])
+            if salary <= 0:
+                return jsonify({"msg": "Salary must be positive"}), 400
+            job.salary = salary
+        except ValueError:
+            return jsonify({"msg": "Salary must be integer"}), 400
+
+    if "description" in data:
+        job.description = data["description"].strip()
 
     db.session.commit()
 
-    return jsonify({"msg": "Updated"})
+    return jsonify({
+        "msg": "Job updated successfully",
+        "job_id": job.id
+    }), 200
 
 @app.route('/company/profile', methods=['GET'])
 @jwt_required()
@@ -341,7 +370,6 @@ def get_company_profile():
         "email": user.email
     })
 
-
 @app.route('/company/profile', methods=['PUT'])
 @jwt_required()
 def update_company_profile():
@@ -354,18 +382,43 @@ def update_company_profile():
     user = User.query.get(user_id)
     data = request.get_json()
 
+    if not data:
+        return jsonify({'msg': 'Invalid JSON'}), 400
+
+    # Update name
     if "name" in data:
-        user.name = data["name"]
+        name = data["name"].strip()
+        if not name:
+            return jsonify({"msg": "Company name cannot be empty"}), 400
+        user.name = name
 
+    # Update email
     if "email" in data:
-        user.email = data["email"]
+        email = data["email"].strip()
 
+        if not email:
+            return jsonify({"msg": "Email cannot be empty"}), 400
+
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user and existing_user.ids != user.ids:
+            return jsonify({"msg": "Email already in use"}), 400
+
+        user.email = email
+
+    # Update password
     if "password" in data and data["password"]:
+        if len(data["password"]) < 6:
+            return jsonify({"msg": "Password must be at least 6 characters"}), 400
+
         user.password = generate_password_hash(data["password"])
 
     db.session.commit()
 
-    return jsonify({"msg": "Profile updated successfully"})
+    return jsonify({
+        "msg": "Profile updated successfully",
+        "updated_name": user.name,
+        "updated_email": user.email
+    }), 200
 
 if __name__ == '__main__':
     with app.app_context():
