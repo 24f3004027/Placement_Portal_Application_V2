@@ -21,7 +21,7 @@ CORS(app, resources={r"/*": {
 
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///placement.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["JWT_SECRET_KEY"] = "super-secret-key"
+app.config['JWT_SECRET_KEY'] = 'your-new-long-32-byte-hex-string-here'
 
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
@@ -50,39 +50,44 @@ class StudentProfile(db.Model):
 
 class CompanyProfile(db.Model):
     __tablename__ = 'company'
-    c_id = db.Column(db.Integer , primary_key = True)
+
+    c_id = db.Column(db.Integer, primary_key=True)
     company_name = db.Column(db.String(150), nullable=False)
     location = db.Column(db.String(150))
     description = db.Column(db.Text)
-    # One-to-one with User (Company user)
+
     user_id = db.Column(db.Integer, db.ForeignKey("user.ids"), unique=True, nullable=False)
     user_br = db.relationship("User")
-    # One-to-many with Job_Application
-    job_applications = db.relationship("Job_Application", back_populates="company_br")
 
-class Job_Application(db.Model):
-    __tablename__ = 'job_application'
-    a_id = db.Column(db.Integer, primary_key=True)
-    job_title = db.Column(db.String(150), nullable=False)
+class JobApplication(db.Model):
+    __tablename__ = "job_application"
 
-    # Many-to-one with Student
-    student_id = db.Column(db.Integer, db.ForeignKey("student.p_id"), nullable=False)
-    student_br = db.relationship("StudentProfile")
+    id = db.Column(db.Integer, primary_key=True)
 
-    # Many-to-one with Company thereby Creating the Many to Many Relation
-    company_id = db.Column(db.Integer, db.ForeignKey("company.c_id"), nullable=False)
-    company_br = db.relationship("CompanyProfile", back_populates="job_applications")
+    job_id = db.Column(db.Integer, db.ForeignKey("job.id"))
+    student_id = db.Column(db.Integer, db.ForeignKey("student.p_id"))
+
+    status = db.Column(db.String(20), default="applied")
+    feedback = db.Column(db.Text)
+    interview_date = db.Column(db.String(50))
+    interview_link = db.Column(db.String(255))
+
+    student = db.relationship("StudentProfile")
+    job = db.relationship("Job")
 
 class Job(db.Model):
     __tablename__ = "job"
 
     id = db.Column(db.Integer, primary_key=True)
+
     title = db.Column(db.String(150), nullable=False)
     location = db.Column(db.String(150))
     salary = db.Column(db.Integer)
     description = db.Column(db.Text)
 
-    company_id = db.Column(db.Integer, db.ForeignKey("user.ids"))
+    company_id = db.Column(db.Integer, db.ForeignKey("company.user_id"))
+
+    status = db.Column(db.String(20), default="active")  
 
 
 @jwt.unauthorized_loader
@@ -202,21 +207,40 @@ def admin_dashboard():
         'companies': [{'ids': c.ids, 'name': c.name, 'email': c.email, 'is_approved': c.is_approved} for c in companies]
     })
 
+#The Company Dashboard Route is this
 @app.route('/company/dashboard', methods=['GET'])
 @jwt_required()
 def company_dashboard():
-    user_id = get_jwt_identity()
+
+    user_id = int(get_jwt_identity())   # <-- IMPORTANT
     claims = get_jwt()
 
-    if claims['role'] != 'company':
-        return jsonify({'msg': 'Unauthorized'}), 403
+    if claims["role"] != "company":
+        return jsonify({"msg": "Unauthorized"}), 403
 
-    user = User.query.get(user_id)
+    jobs_posted = Job.query.filter_by(company_id=user_id).count()
+
+    candidates_applied = (
+        JobApplication.query
+        .join(Job)
+        .filter(Job.company_id == user_id)
+        .count()
+    )
+
+    candidates_shortlisted = (
+        JobApplication.query
+        .join(Job)
+        .filter(
+            Job.company_id == user_id,
+            JobApplication.status.in_(["shortlisted","selected"])
+        )
+        .count()
+    )
 
     return jsonify({
-        "company_name": user.name,
-        "jobs_posted": 0,
-        "candidates_applied": 0
+        "jobs_posted": jobs_posted,
+        "candidates_applied": candidates_applied,
+        "candidates_shortlisted": candidates_shortlisted
     })
 
 #Admin Will Approve the Company
@@ -241,7 +265,8 @@ def approve_company(user_id):
 @app.route("/company/jobs", methods=["POST"])
 @jwt_required()
 def create_job():
-    user_id = get_jwt_identity()
+
+    user_id = int(get_jwt_identity())  # <-- same fix
     claims = get_jwt()
 
     if claims["role"] != "company":
@@ -279,6 +304,7 @@ def get_jobs():
             "title": j.title,
             "location": j.location,
             "salary": j.salary,
+            "status": j.status,
             "description": j.description,
             "applicants": [],
             "shortlisted": []
@@ -363,7 +389,10 @@ def get_company_profile():
     if claims['role'] != 'company':
         return jsonify({'msg': 'Unauthorized'}), 403
 
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
+
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
 
     return jsonify({
         "name": user.name,
@@ -420,6 +449,219 @@ def update_company_profile():
         "updated_email": user.email
     }), 200
 
+#Seeing the Company Applicants Button
+@app.route("/company/applicants", methods=["GET"])
+@jwt_required()
+def get_company_applicants():
+
+    user_id = int(get_jwt_identity())
+    claims = get_jwt()
+
+    if claims["role"] != "company":
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    # Get all applications for jobs belonging to this company
+    applications = JobApplication.query.join(Job).filter(
+        Job.company_id == user_id
+    ).all()
+
+    result = []
+
+    for app in applications:
+
+        student_profile = app.student
+        user = student_profile.user_br
+
+        result.append({
+            "application_id": app.id,
+            "student_name": user.name,
+            "department": student_profile.department,
+            "cgpa": student_profile.cgpa,
+            "resume": student_profile.resume,
+            "job_title": app.job.title,
+            "status": app.status,
+            "interview_date": app.interview_date,
+            "interview_link": app.interview_link
+        })
+
+    return jsonify(result)
+
+#One unified route for shortlisting or rejecting students with particular feedback
+@app.route("/company/application/<int:app_id>/decision", methods=["POST"])
+@jwt_required()
+def decide_application(app_id):
+
+    claims = get_jwt()
+
+    if claims["role"] != "company":
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    data = request.get_json()
+
+    status = data.get("status")
+    feedback = data.get("feedback")
+
+    app = JobApplication.query.get(app_id)
+
+    if not app:
+        return jsonify({"msg": "Application not found"}), 404
+
+    app.status = status
+    app.feedback = feedback
+
+    db.session.commit()
+    return jsonify({"msg": "Application updated"})
+
+#Scheduling the said Interviw of the appropriate candidates
+@app.route("/company/application/<int:app_id>/schedule", methods=["PUT"])
+@jwt_required()
+def schedule_interview(app_id):
+
+    user_id = int(get_jwt_identity())
+    claims = get_jwt()
+
+    if claims["role"] != "company":
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"msg": "Invalid JSON"}), 400
+
+    interview_date = data.get("date")
+    interview_link = data.get("link")
+
+    application = JobApplication.query.get(app_id)
+
+    if not application:
+        return jsonify({"msg": "Application not found"}), 404
+
+    job = Job.query.get(application.job_id)
+
+    if job.company_id != user_id:
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    if application.status != "shortlisted":
+        return jsonify({"msg": "Only shortlisted candidates can be scheduled"}), 400
+
+    application.interview_date = interview_date
+    application.interview_link = interview_link
+
+    db.session.commit()
+
+    return jsonify({
+        "msg": "Interview scheduled successfully",
+        "application_id": application.id
+    }), 200
+
+#Adding the View Shortlisted Students Route
+@app.route("/company/shortlisted", methods=["GET"])
+@jwt_required()
+def get_shortlisted_students():
+    user_id = int(get_jwt_identity())
+    claims = get_jwt()
+
+    if claims["role"] != "company":
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    apps = JobApplication.query.join(Job).filter(
+        Job.company_id == user_id,
+        JobApplication.status.in_(["shortlisted" , "selected"])
+    ).all()
+
+    result = []
+    for a in apps:
+        student = a.student
+        user = student.user_br
+
+        result.append({
+            "application_id": a.id, 
+            "name": user.name,
+            "department": student.department,
+            "cgpa": student.cgpa,
+            "resume": student.resume,
+            "job_title": a.job.title,
+            "status": a.status,
+            "interview_date": a.interview_date, 
+            "interview_link": a.interview_link
+        })
+
+    return jsonify(result)
+
+#Backend API to Close the Job post by the company
+@app.route("/company/jobs/<int:job_id>/close", methods=["PUT"])
+@jwt_required()
+def close_job(job_id):
+
+    user_id = int(get_jwt_identity())
+    claims = get_jwt()
+
+    if claims["role"] != "company":
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    job = Job.query.filter_by(id=job_id, company_id=user_id).first()
+
+    if not job:
+        return jsonify({"msg": "Job not found"}), 404
+
+    job.status = "closed"
+    db.session.commit()
+
+    return jsonify({"msg": "Job closed"})
+
+#Backend API to Open or ReOpen the Job Post if closed
+@app.route("/company/jobs/<int:job_id>/open", methods=["PUT"])
+@jwt_required()
+def open_job(job_id):
+
+    user_id = int(get_jwt_identity())
+    claims = get_jwt()
+
+    if claims["role"] != "company":
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    job = Job.query.filter_by(id=job_id, company_id=user_id).first()
+
+    if not job:
+        return jsonify({"msg": "Job not found"}), 404
+
+    job.status = "active"
+    db.session.commit()
+
+    return jsonify({"msg": "Job reopened"})
+
+#Backend Route for final decision post interview
+@app.route("/company/application/<int:app_id>/final", methods=["PUT"])
+@jwt_required()
+def final_decision(app_id):
+    user_id = int(get_jwt_identity())
+    claims = get_jwt()
+
+    if claims["role"] != "company":
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    data = request.get_json()
+    decision = data.get("decision")
+
+    if decision not in ["selected", "rejected"]:
+        return jsonify({"msg": "Invalid decision"}), 400
+
+    application = JobApplication.query.get(app_id)
+    if not application:
+        return jsonify({"msg": "Application not found"}), 404
+
+    job = Job.query.get(application.job_id)
+    if job.company_id != user_id:
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    application.status = decision
+    db.session.commit()
+    return jsonify({
+        "msg": "Final decision recorded",
+        "status": decision
+    })
+
+#Running of Flask , Creating the Administrator
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
