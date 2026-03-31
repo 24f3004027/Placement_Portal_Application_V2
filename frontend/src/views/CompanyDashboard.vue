@@ -2,10 +2,30 @@
   <div class="dashboard">
     <div class="top-bar">
       <h1>Welcome, {{ companyName }}</h1>
-      <button class="logout-btn" @click="logout">Logout</button>
+      
+      <div style="display: flex; gap: 10px;">
+        <button class="edit-profile-btn" @click="openProfileEdit">
+          Edit Profile
+        </button>
+        <button class="logout-btn" @click="logout">Logout</button>
+      </div>
     </div>
 
     <div class="main-content">
+      <div v-if="showProfileForm" class="form-container">
+        <div class="section-header">
+          <h2>Edit Company Profile</h2>
+          <button class="close-btn" @click="showProfileForm = false">✕</button>
+        </div>
+
+        <input v-model="profileForm.name" placeholder="Company Name" />
+        <input v-model="profileForm.email" placeholder="Email" />
+        <input v-model="profileForm.password" type="password" placeholder="New Password (optional)" />
+
+        <button class="btn-save" @click="updateProfile">
+          Save Changes
+        </button>
+      </div>
       <div class="cards-grid">
         <div class="card">
           <p class="card-label">Jobs Posted</p>
@@ -192,7 +212,13 @@ export default {
       showShortlisted: false,
       editingJobId: null,
       summary: { jobs_posted: 0, candidates_applied: 0, candidates_shortlisted: 0 },
-      newJob: { title: "", location: "", salary: "", description: "" }
+      newJob: { title: "", location: "", salary: "", description: "" },
+      showProfileForm: false,
+      profileForm: {
+      name: "",
+      email: "",
+      password: ""
+      }
     };
   },
   mounted() {
@@ -204,7 +230,55 @@ export default {
       await this.fetchJobs();
       this.loading = false;
     },
+    async openProfileEdit() {
+      const token = localStorage.getItem("access_token");
 
+      try {
+          const res = await axios.get("http://127.0.0.1:5000/company/profile", {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+
+          // Fill form with backend data
+          this.profileForm.name = res.data.name;
+          this.profileForm.email = res.data.email;
+          this.profileForm.password = "";
+
+          this.showProfileForm = true;
+
+        } catch (err) {
+          console.error("Profile load failed:", err);
+        }
+      },
+
+      async updateProfile() {
+        const token = localStorage.getItem("access_token");
+
+        try {
+          await axios.put(
+            "http://127.0.0.1:5000/company/profile",
+            this.profileForm,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+
+          alert("Profile updated successfully");
+
+          this.companyName = this.profileForm.name;
+          localStorage.setItem("name", this.profileForm.name);
+
+          this.showProfileForm = false;
+
+        } catch (err) {
+           
+          if (err.response && err.response.data && err.response.data.msg) {
+            alert(err.response.data.msg);
+          } 
+          else {
+            alert("Something went wrong");
+          }
+          
+          console.error("Profile update failed:", err);
+        }
+      },
     async fetchSummary() {
       const token = localStorage.getItem("access_token");
       try {
