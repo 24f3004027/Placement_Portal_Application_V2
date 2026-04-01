@@ -113,12 +113,34 @@
                   <div v-else-if="s.status === 'shortlisted' && s.interview_date">
                     <div class="status-tag active" style="padding: 8px; display: block; text-align: center; margin-bottom: 5px;">
                       📅 {{ s.interview_date }}<br>
-                      <a :href="s.interview_link" target="_blank" style="color: inherit; font-size: 0.75rem;">Join Meeting</a>
+                      <a :href="s.interview_link" target="_blank" style="color: inherit; font-size: 0.75rem;">
+                        Join Meeting
+                      </a>
                     </div>
-                    
+
+                    <input 
+                      type="text" 
+                      v-model="s.offer_letter" 
+                      placeholder="Offer Letter Link" 
+                      class="interview-input"
+                    />
+
                     <div class="btn-group" style="justify-content: center; gap: 5px;">
-                      <button class="btn-shortlist" style="padding: 4px 8px; font-size: 0.75rem;" @click="finalDecision(s, 'selected')">Select</button>
-                      <button class="btn-reject" style="padding: 4px 8px; font-size: 0.75rem;" @click="finalDecision(s, 'rejected')">Reject</button>
+                      <button 
+                        class="btn-shortlist" 
+                        style="padding: 4px 8px; font-size: 0.75rem;" 
+                        @click="finalDecision(s, 'selected')"
+                      >
+                        Select
+                      </button>
+
+                      <button 
+                        class="btn-reject" 
+                        style="padding: 4px 8px; font-size: 0.75rem;" 
+                        @click="finalDecision(s, 'rejected')"
+                      >
+                        Reject
+                      </button>
                     </div>
                   </div>
 
@@ -307,7 +329,12 @@ export default {
         const res = await axios.get("http://127.0.0.1:5000/company/shortlisted", {
           headers: { Authorization: `Bearer ${token}` }
         });
-        this.shortlistedStudents = res.data.map(s => ({ ...s, temp_date: "", temp_link: "" }));
+        this.shortlistedStudents = res.data.map(s => ({
+          ...s,
+          temp_date: "",
+          temp_link: "",
+          offer_letter: ""   
+        }));
         this.showShortlisted = true;
         this.showApplicants = false;
       } catch (err) { console.error("Shortlist View Failed:", err); }
@@ -324,20 +351,25 @@ export default {
       } catch (err) { console.error(err); }
     },
     async finalDecision(applicant, decision) {
-      const token = localStorage.getItem("access_token");
-      try {
-        await axios.put(
-          `http://127.0.0.1:5000/company/application/${applicant.application_id}/final`,
-          { decision: decision },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        alert("Final decision saved");
-        await this.viewShortlisted(); 
-        await this.fetchSummary();     
-      } catch (err) {
-        console.error(err);
-      }
-    },
+    const token = localStorage.getItem("access_token");
+
+    try {
+      await axios.put(
+        `http://127.0.0.1:5000/company/application/${applicant.application_id}/final`,
+        {
+          decision: decision,
+          offer_letter: applicant.offer_letter
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      alert("Final decision saved");
+      await this.viewShortlisted();
+
+    } catch (err) {
+      alert(err.response?.data?.msg || "Error saving decision");
+    }
+  },
     async scheduleInterview(student) {
       const token = localStorage.getItem("access_token");
       if (!student.temp_date || !student.temp_link) {
