@@ -198,13 +198,31 @@ def admin_dashboard():
     
     students = User.query.filter_by(role='student').all()
     companies = User.query.filter_by(role='company').all()
-    
+
+    total_jobs = Job.query.count()
+    total_applications = JobApplication.query.count()
+
     return jsonify({
-        'msg': 'Welcome Admin',
-        'user_id' : user_id,
-        # SEND THE LISTS TO VUE
-        'students': [{'ids': s.ids, 'name': s.name, 'email': s.email} for s in students],
-        'companies': [{'ids': c.ids, 'name': c.name, 'email': c.email, 'is_approved': c.is_approved} for c in companies]
+        'students': [
+            {
+                'ids': s.ids,
+                'name': s.name,
+                'email': s.email,
+                'is_approved': s.is_approved
+            } for s in students
+        ],
+        'companies': [
+            {
+                'ids': c.ids,
+                'name': c.name,
+                'email': c.email,
+                'is_approved': c.is_approved
+            } for c in companies
+        ],
+        'total_students': len(students),
+        'total_companies': len(companies),
+        'total_jobs': total_jobs,
+        'total_applications': total_applications
     })
 
 #The Company Dashboard Route is this
@@ -661,7 +679,103 @@ def final_decision(app_id):
         "status": decision
     })
 
-#Running of Flask , Creating the Administrator
+@app.route('/admin/toggle/<int:user_id>', methods=['POST'])
+@jwt_required()
+def toggle_user(user_id):
+    claims = get_jwt()
+
+    if claims['role'] != 'admin':
+        return jsonify({'msg': 'Unauthorized'}), 403
+
+    user = User.query.get(user_id)
+
+    if not user:
+        return jsonify({'msg': 'User not found'}), 404
+
+    user.is_approved = not user.is_approved
+    db.session.commit()
+
+    return jsonify({'msg': 'Status updated'})
+
+@app.route('/admin/jobs', methods=['GET'])
+@jwt_required()
+def admin_jobs():
+    claims = get_jwt()
+
+    if claims['role'] != 'admin':
+        return jsonify({'msg': 'Unauthorized'}), 403
+
+    jobs = Job.query.all()
+
+    result = []
+    for j in jobs:
+        company = User.query.get(j.company_id)
+
+        result.append({
+            "id": j.id,
+            "title": j.title,
+            "location": j.location,
+            "salary": j.salary,
+            "status": j.status,
+            "company_name": company.name if company else "Unknown"
+        })
+
+    return jsonify(result)
+
+@app.route('/admin/applications', methods=['GET'])
+@jwt_required()
+def admin_get_applications():
+    claims = get_jwt()
+
+    if claims['role'] != 'admin':
+        return jsonify({'msg': 'Unauthorized'}), 403
+
+    apps = JobApplication.query.all()
+
+    result = []
+
+    for a in apps:
+        student = a.student
+        student_user = student.user_br
+
+        job = a.job
+        company = User.query.get(job.company_id)
+
+        result.append({
+            "application_id": a.id,
+            "student_name": student_user.name,
+            "student_email": student_user.email,
+            "job_title": job.title,
+            "company_name": company.name if company else "Unknown",
+            "status": a.status,
+            "interview_date": a.interview_date,
+            "interview_link": a.interview_link
+        })
+
+    return jsonify(result)
+
+@app.route('/admin/jobs/<int:job_id>', methods=['DELETE'])
+@jwt_required()
+def admin_delete_job(job_id):
+    claims = get_jwt()
+
+    if claims['role'] != 'admin':
+        return jsonify({'msg': 'Unauthorized'}), 403
+
+    job = Job.query.get(job_id)
+
+    if not job:
+        return jsonify({'msg': 'Job not found'}), 404
+
+    # 🔥 IMPORTANT: delete related applications first
+    JobApplication.query.filter_by(job_id=job_id).delete()
+
+    db.session.delete(job)
+    db.session.commit()
+
+    return jsonify({'msg': 'Job deleted successfully'}), 200
+    
+#Running of Flask and Creating the Administrator assuming the superuser doesnt exist yet
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
