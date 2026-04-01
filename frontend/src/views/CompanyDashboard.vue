@@ -365,21 +365,46 @@ export default {
     },
     async saveJob() {
       const token = localStorage.getItem("access_token");
+
+      if (
+        !this.newJob.title ||
+        !this.newJob.description ||
+        !this.newJob.skills ||
+        !this.newJob.experience ||
+        !this.newJob.benefits
+      ) {
+        alert("All fields are required");
+        return;
+      }
+
       try {
-        const payload = { ...this.newJob, salary: parseInt(this.newJob.salary) || 0 };
+        const payload = {
+          ...this.newJob,
+          salary: parseInt(this.newJob.salary) || 0
+        };
+
         if (this.editingJobId) {
-          await axios.put(`http://127.0.0.1:5000/company/jobs/${this.editingJobId}`, payload, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
+          await axios.put(
+            `http://127.0.0.1:5000/company/jobs/${this.editingJobId}`,
+            payload,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
         } else {
-          await axios.post("http://127.0.0.1:5000/company/jobs", payload, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
+          await axios.post(
+            "http://127.0.0.1:5000/company/jobs",
+            payload,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
         }
+        alert("Job saved successfully");
+
         this.showForm = false;
         await this.fetchJobs();
         await this.fetchSummary();
-      } catch (err) { console.error(err); }
+
+      } catch (err) {
+        alert(err.response?.data?.msg || "Failed to save job");
+      }
     },
     async toggleJobStatus(job, action) {
       const token = localStorage.getItem("access_token");
@@ -420,6 +445,7 @@ export default {
 </script>
 
 <style scoped>
+  
   .dashboard {
     background: #f8fafc;
     min-height: 100vh;
