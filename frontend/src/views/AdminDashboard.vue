@@ -297,6 +297,7 @@ export default {
 </script>
 
 <style scoped>
+
 .dashboard {
   background: #f4f7f6;
   min-height: 100vh;
@@ -319,7 +320,6 @@ export default {
   margin: auto;
 }
 
-/* Search UI */
 .search-wrapper {
   margin-bottom: 2rem;
   display: flex;
@@ -344,7 +344,6 @@ export default {
   box-shadow: 0 2px 15px rgba(0, 123, 255, 0.2);
 }
 
-/* Stats Grid & Cards */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -388,7 +387,6 @@ h3 {
   letter-spacing: 1px;
 }
 
-/* Table Styling */
 .table-container {
   background: white;
   padding: 1.5rem;
@@ -425,7 +423,6 @@ td {
   font-style: italic;
 }
 
-/* Buttons */
 .view-btn {
   background: #6c757d;
   color: white;
@@ -471,7 +468,6 @@ td {
   font-weight: bold;
 }
 
-/* Utilities */
 .text-success {
   color: #28a745;
   font-weight: bold;
