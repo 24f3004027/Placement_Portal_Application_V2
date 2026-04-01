@@ -26,13 +26,14 @@
           Save Changes
         </button>
       </div>
+
       <div class="cards-grid">
         <div class="card">
           <p class="card-label">Jobs Posted</p>
           <h2 class="card-value">{{ summary.jobs_posted }}</h2>
         </div>
 
-        <div class="card clickable" @click="viewApplicants">
+        <div class="card clickable" @click="viewApplicants()">
           <p class="card-label">Candidates Applied</p>
           <h2 class="card-value">{{ summary.candidates_applied }}</h2>
           <span class="card-action">View Applicants →</span>
@@ -116,20 +117,8 @@
                     </div>
                     
                     <div class="btn-group" style="justify-content: center; gap: 5px;">
-                      <button 
-                        class="btn-shortlist" 
-                        style="padding: 4px 8px; font-size: 0.75rem;" 
-                        @click="finalDecision(s, 'selected')"
-                      >
-                        Select
-                      </button>
-                      <button 
-                        class="btn-reject" 
-                        style="padding: 4px 8px; font-size: 0.75rem;" 
-                        @click="finalDecision(s, 'rejected')"
-                      >
-                        Reject
-                      </button>
+                      <button class="btn-shortlist" style="padding: 4px 8px; font-size: 0.75rem;" @click="finalDecision(s, 'selected')">Select</button>
+                      <button class="btn-reject" style="padding: 4px 8px; font-size: 0.75rem;" @click="finalDecision(s, 'rejected')">Reject</button>
                     </div>
                   </div>
 
@@ -166,12 +155,19 @@
           <input v-model="newJob.salary" placeholder="Salary" type="number" />
         </div>
         <textarea v-model="newJob.description" placeholder="Job Description"></textarea>
+        
+        <input v-model="newJob.skills" placeholder="Required Skills (e.g. Python, React)" />
+        <input v-model="newJob.experience" placeholder="Experience (e.g. 2+ years)" />
+        <textarea v-model="newJob.benefits" placeholder="Benefits (bonus, insurance, etc)"></textarea>
+
         <button class="btn-save" @click="saveJob">
           {{ editingJobId ? "Update Listing" : "Post Job" }}
         </button>
       </div>
 
       <div class="jobs-list">
+        <div v-if="jobs.length === 0" class="empty-state">No jobs yet</div>
+        
         <div v-for="job in jobs" :key="job.id" class="item-card" :class="{ 'job-closed': job.status === 'closed' }">
           <div class="item-header">
             <div>
@@ -181,6 +177,9 @@
               <p class="text-muted">{{ job.location }} • ${{ job.salary }}</p>
             </div>
             <div class="item-actions">
+              <button class="btn-icon" @click="viewApplicants(job.id)">
+                Applicants
+              </button>
               <button v-if="job.status === 'active'" class="btn-icon warning" @click="toggleJobStatus(job, 'close')">Close</button>
               <button v-else class="btn-icon success-alt" @click="toggleJobStatus(job, 'open')">Reopen</button>
               <button class="btn-icon" @click="startEdit(job)">Edit</button>
@@ -188,6 +187,10 @@
             </div>
           </div>
           <p>{{ job.description }}</p>
+
+          <p v-if="job.skills"><b>Skills:</b> {{ job.skills }}</p>
+          <p v-if="job.experience"><b>Experience:</b> {{ job.experience }}</p>
+          <p v-if="job.benefits"><b>Benefits:</b> {{ job.benefits }}</p>
         </div>
       </div>
 
@@ -212,12 +215,20 @@ export default {
       showShortlisted: false,
       editingJobId: null,
       summary: { jobs_posted: 0, candidates_applied: 0, candidates_shortlisted: 0 },
-      newJob: { title: "", location: "", salary: "", description: "" },
+      newJob: { 
+        title: "", 
+        location: "", 
+        salary: "", 
+        description: "",
+        skills: "",
+        experience: "",
+        benefits: ""
+      },
       showProfileForm: false,
       profileForm: {
-      name: "",
-      email: "",
-      password: ""
+        name: "",
+        email: "",
+        password: ""
       }
     };
   },
@@ -232,53 +243,39 @@ export default {
     },
     async openProfileEdit() {
       const token = localStorage.getItem("access_token");
-
       try {
-          const res = await axios.get("http://127.0.0.1:5000/company/profile", {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-
-          // Fill form with backend data
-          this.profileForm.name = res.data.name;
-          this.profileForm.email = res.data.email;
-          this.profileForm.password = "";
-
-          this.showProfileForm = true;
-
-        } catch (err) {
-          console.error("Profile load failed:", err);
+        const res = await axios.get("http://127.0.0.1:5000/company/profile", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        this.profileForm.name = res.data.name;
+        this.profileForm.email = res.data.email;
+        this.profileForm.password = "";
+        this.showProfileForm = true;
+      } catch (err) {
+        console.error("Profile load failed:", err);
+      }
+    },
+    async updateProfile() {
+      const token = localStorage.getItem("access_token");
+      try {
+        await axios.put(
+          "http://127.0.0.1:5000/company/profile",
+          this.profileForm,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        alert("Profile updated successfully");
+        this.companyName = this.profileForm.name;
+        localStorage.setItem("name", this.profileForm.name);
+        this.showProfileForm = false;
+      } catch (err) {
+        if (err.response && err.response.data && err.response.data.msg) {
+          alert(err.response.data.msg);
+        } else {
+          alert("Something went wrong");
         }
-      },
-
-      async updateProfile() {
-        const token = localStorage.getItem("access_token");
-
-        try {
-          await axios.put(
-            "http://127.0.0.1:5000/company/profile",
-            this.profileForm,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-
-          alert("Profile updated successfully");
-
-          this.companyName = this.profileForm.name;
-          localStorage.setItem("name", this.profileForm.name);
-
-          this.showProfileForm = false;
-
-        } catch (err) {
-           
-          if (err.response && err.response.data && err.response.data.msg) {
-            alert(err.response.data.msg);
-          } 
-          else {
-            alert("Something went wrong");
-          }
-          
-          console.error("Profile update failed:", err);
-        }
-      },
+        console.error("Profile update failed:", err);
+      }
+    },
     async fetchSummary() {
       const token = localStorage.getItem("access_token");
       try {
@@ -288,19 +285,22 @@ export default {
         this.summary = res.data;
       } catch (err) { console.error("Summary Load Failed:", err); }
     },
-
-    async viewApplicants() {
+    async viewApplicants(jobId = null) {
       const token = localStorage.getItem("access_token");
       try {
         const res = await axios.get("http://127.0.0.1:5000/company/applicants", {
           headers: { Authorization: `Bearer ${token}` }
         });
-        this.applicants = res.data;
+        
+        // Filter by jobId if provided
+        this.applicants = jobId 
+          ? res.data.filter(a => a.job_id === jobId)
+          : res.data;
+
         this.showApplicants = true;
         this.showShortlisted = false;
       } catch (err) { console.error("Applicants View Failed:", err); }
     },
-
     async viewShortlisted() {
       const token = localStorage.getItem("access_token");
       try {
@@ -312,7 +312,6 @@ export default {
         this.showApplicants = false;
       } catch (err) { console.error("Shortlist View Failed:", err); }
     },
-
     async handleDecision(applicant, status) {
       const token = localStorage.getItem("access_token");
       try {
@@ -324,7 +323,6 @@ export default {
         await this.fetchSummary(); 
       } catch (err) { console.error(err); }
     },
-
     async finalDecision(applicant, decision) {
       const token = localStorage.getItem("access_token");
       try {
@@ -340,14 +338,12 @@ export default {
         console.error(err);
       }
     },
-
     async scheduleInterview(student) {
       const token = localStorage.getItem("access_token");
       if (!student.temp_date || !student.temp_link) {
         alert("Please select a date and enter a link.");
         return;
       }
-
       try {
         await axios.put(
           `http://127.0.0.1:5000/company/application/${student.application_id}/schedule`,
@@ -358,7 +354,6 @@ export default {
         await this.viewShortlisted();
       } catch (err) { console.error("Interview Scheduling Failed:", err); }
     },
-
     async fetchJobs() {
       const token = localStorage.getItem("access_token");
       try {
@@ -368,11 +363,10 @@ export default {
         this.jobs = res.data;
       } catch (err) { this.$router.push("/login"); }
     },
-
     async saveJob() {
       const token = localStorage.getItem("access_token");
       try {
-        const payload = { ...this.newJob, salary: parseInt(this.newJob.salary) };
+        const payload = { ...this.newJob, salary: parseInt(this.newJob.salary) || 0 };
         if (this.editingJobId) {
           await axios.put(`http://127.0.0.1:5000/company/jobs/${this.editingJobId}`, payload, {
             headers: { Authorization: `Bearer ${token}` }
@@ -387,7 +381,6 @@ export default {
         await this.fetchSummary();
       } catch (err) { console.error(err); }
     },
-
     async toggleJobStatus(job, action) {
       const token = localStorage.getItem("access_token");
       try {
@@ -397,13 +390,11 @@ export default {
         job.status = (action === 'close') ? 'closed' : 'active';
       } catch (err) { console.error(err); }
     },
-
     startEdit(job) {
       this.newJob = { ...job };
       this.editingJobId = job.id;
       this.showForm = true;
     },
-
     async deleteJob(jobId) {
       const token = localStorage.getItem("access_token");
       if (!confirm("Delete this job?")) return;
@@ -415,13 +406,11 @@ export default {
         await this.fetchSummary();
       } catch (err) { console.error(err); }
     },
-
     toggleForm() { 
       this.editingJobId = null; 
-      this.newJob = { title: "", location: "", salary: "", description: "" }; 
+      this.newJob = { title: "", location: "", salary: "", description: "", skills: "", experience: "", benefits: "" }; 
       this.showForm = !this.showForm; 
     },
-    
     logout() { 
       localStorage.clear(); 
       this.$router.push("/login"); 
@@ -431,36 +420,215 @@ export default {
 </script>
 
 <style scoped>
-  .dashboard { background: #f8fafc; min-height: 100vh; font-family: sans-serif; color: #1e293b; }
-  .main-content { max-width: 1000px; margin: 0 auto; padding: 2rem; }
-  .top-bar { background: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; }
-  .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem; }
-  .card { background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center; }
-  .card.clickable { cursor: pointer; transition: transform 0.2s; }
-  .card.clickable:hover { transform: translateY(-4px); border-color: #4f46e5; }
-  .item-card { background: white; padding: 1.5rem; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 1rem; }
-  .interview-input { width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
-  .table-container { overflow-x: auto; background: white; border-radius: 8px; border: 1px solid #e2e8f0; }
-  .styled-table { width: 100%; border-collapse: collapse; }
-  .styled-table th, .styled-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #f1f5f9; }
-  .styled-table th { background: #f8fafc; color: #64748b; font-size: 0.8rem; text-transform: uppercase; }
-  .resume-link { color: #4f46e5; text-decoration: none; font-weight: bold; }
-  .status-tag { font-size: 0.7rem; padding: 2px 8px; border-radius: 12px; text-transform: uppercase; vertical-align: middle; }
-  .status-tag.active { background: #dcfce7; color: #166534; }
-  .status-tag.closed { background: #fee2e2; color: #991b1b; }
-  button { border-radius: 6px; padding: 0.6rem 1.2rem; cursor: pointer; font-weight: 600; border: none; }
-  .btn-shortlist { background: #22c55e; color: white; }
-  .btn-reject { background: #ef4444; color: white; }
-  .create-btn { background: #4f46e5; color: white; }
-  .btn-save { background: #1e293b; color: white; width: 100%; margin-top: 10px; }
-  .btn-icon { background: #f1f5f9; font-size: 0.8rem; margin-left: 5px; padding: 5px 10px; }
-  .form-container { background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid #4f46e5; margin-bottom: 2rem; }
-  .form-container input, .form-container textarea { width: 100%; padding: 0.8rem; margin: 0.5rem 0; border: 1px solid #e2e8f0; border-radius: 6px; box-sizing: border-box; }
-  .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .section-header { display: flex; justify-content: space-between; align-items: center; margin: 2rem 0 1rem; }
-  .divider { border: 0; border-top: 1px solid #e2e8f0; margin: 3rem 0; }
-  .status-badge { margin-top: 1rem; padding: 1rem; border-radius: 8px; }
-  .status-badge.shortlisted { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
-  .status-badge.rejected { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
-  .status-badge.selected { background: #eef2ff; border: 1px solid #c7d2fe; color: #3730a3; }
+  .dashboard {
+    background: #f8fafc;
+    min-height: 100vh;
+    font-family: sans-serif;
+    color: #1e293b;
+  }
+
+  .main-content {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  .top-bar {
+    background: white;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    text-align: center;
+  }
+
+  .card.clickable {
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  .card.clickable:hover {
+    transform: translateY(-4px);
+    border-color: #4f46e5;
+  }
+
+  .item-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 1rem;
+  }
+
+  .interview-input {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    box-sizing: border-box;
+  }
+
+  .table-container {
+    overflow-x: auto;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .styled-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .styled-table th,
+  .styled-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .styled-table th {
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+  }
+
+  .resume-link {
+    color: #4f46e5;
+    text-decoration: none;
+    font-weight: bold;
+  }
+
+  .status-tag {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    vertical-align: middle;
+  }
+
+  .status-tag.active {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .status-tag.closed {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  button {
+    border-radius: 6px;
+    padding: 0.6rem 1.2rem;
+    cursor: pointer;
+    font-weight: 600;
+    border: none;
+  }
+
+  .btn-shortlist {
+    background: #22c55e;
+    color: white;
+  }
+
+  .btn-reject {
+    background: #ef4444;
+    color: white;
+  }
+
+  .create-btn {
+    background: #4f46e5;
+    color: white;
+  }
+
+  .btn-save {
+    background: #1e293b;
+    color: white;
+    width: 100%;
+    margin-top: 10px;
+  }
+
+  .btn-icon {
+    background: #f1f5f9;
+    font-size: 0.8rem;
+    margin-left: 5px;
+    padding: 5px 10px;
+  }
+
+  .form-container {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    border: 1px solid #4f46e5;
+    margin-bottom: 2rem;
+  }
+
+  .form-container input,
+  .form-container textarea {
+    width: 100%;
+    padding: 0.8rem;
+    margin: 0.5rem 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    box-sizing: border-box;
+  }
+
+  .input-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 2rem 0 1rem;
+  }
+
+  .divider {
+    border: 0;
+    border-top: 1px solid #e2e8f0;
+    margin: 3rem 0;
+  }
+
+  .status-badge {
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 8px;
+  }
+
+  .status-badge.shortlisted {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+  }
+
+  .status-badge.rejected {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+  }
+
+  .status-badge.selected {
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    color: #3730a3;
+  }
 </style>
