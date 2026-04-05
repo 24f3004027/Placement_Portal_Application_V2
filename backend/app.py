@@ -287,7 +287,12 @@ def approve_company(user_id):
 @jwt_required()
 def create_job():
 
-    user_id = int(get_jwt_identity())  
+    user_id = int(get_jwt_identity())
+    user = db.session.get(User, user_id)
+
+    if not user.is_approved:
+        return jsonify({"msg": "Company not approved"}), 403
+
     claims = get_jwt()
 
     if claims["role"] != "company":
@@ -584,6 +589,7 @@ def schedule_interview(app_id):
     application.interview_date = interview_date
     application.interview_link = interview_link
 
+    application.status = 
     db.session.commit()
 
     return jsonify({
@@ -603,7 +609,7 @@ def get_shortlisted_students():
 
     apps = JobApplication.query.join(Job).filter(
         Job.company_id == user_id,
-        JobApplication.status.in_(["shortlisted" , "selected"])
+        JobApplication.status.in_(["shortlisted", "interview", "offer"])
     ).all()
 
     result = []
@@ -671,6 +677,16 @@ def open_job(job_id):
 @app.route("/company/application/<int:app_id>/final", methods=["PUT"])
 @jwt_required()
 def final_decision(app_id):
+    application = JobApplication.query.get(app_id)
+
+    if not application:
+        return jsonify({"msg": "Application not found"}), 404
+
+    job = Job.query.get(application.job_id)
+
+    if job.company_id != user_id:
+        return jsonify({"msg": "Unauthorized"}), 403
+
     user_id = int(get_jwt_identity())
     claims = get_jwt()
 
@@ -681,21 +697,14 @@ def final_decision(app_id):
     decision = data.get("decision")
     offer_letter = data.get("offer_letter")
 
-    application.status = decision
-
     if decision == "selected":
+        application.status = "offer"
         application.offer_letter = offer_letter
+    else:
+        application.status = "rejected"
 
     if decision not in ["selected", "rejected"]:
         return jsonify({"msg": "Invalid decision"}), 400
-
-    application = JobApplication.query.get(app_id)
-    if not application:
-        return jsonify({"msg": "Application not found"}), 404
-
-    job = Job.query.get(application.job_id)
-    if job.company_id != user_id:
-        return jsonify({"msg": "Unauthorized"}), 403
 
     application.status = decision
     db.session.commit()
@@ -792,7 +801,6 @@ def admin_delete_job(job_id):
     if not job:
         return jsonify({'msg': 'Job not found'}), 404
 
-    # 🔥 IMPORTANT: delete related applications first
     JobApplication.query.filter_by(job_id=job_id).delete()
 
     db.session.delete(job)
@@ -809,7 +817,10 @@ def student_jobs():
     if claims["role"] != "student":
         return jsonify({"msg": "Unauthorized"}), 403
 
-    jobs = Job.query.filter_by(status="active").all()
+    jobs = Job.query.join(User, Job.company_id == User.ids).filter(
+        Job.status == "active",
+        User.is_approved == True
+    ).all() 
 
     result = []
 
@@ -979,6 +990,31 @@ def update_student_profile():
     db.session.commit()
 
     return jsonify({"msg": "Profile updated successfully"})
+
+@app.route("/company/application/<int:app_id>/place", methods=["PUT"])
+@jwt_required()
+def mark_placed(app_id):
+
+    user_id = int(get_jwt_identity())
+    claims = get_jwt()
+
+    if claims["role"] != "company":
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    application = JobApplication.query.get(app_id)
+
+    if not application:
+        return jsonify({"msg": "Application not found"}), 404
+
+    job = Job.query.get(application.job_id)
+
+    if job.company_id != user_id:
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    application.status = "placed"
+    db.session.commit()
+
+    return jsonify({"msg": "Student marked as placed"})
 
 #Running of Flask and Creating the Administrator assuming the superuser doesnt exist yet
 if __name__ == '__main__':

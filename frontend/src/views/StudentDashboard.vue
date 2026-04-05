@@ -39,7 +39,13 @@
       </a>
       <div v-for="app in applications" :key="app.id" class="card">
         <h3>{{ app.job_title }}</h3>
-        <p>Status: {{ app.status }}</p>
+        <p><b>Status:</b> {{ app.status.toUpperCase() }}</p>
+
+        <p v-if="app.status === 'interview'">📅 Interview Scheduled</p>
+        <p v-if="app.status === 'offer'">🎉 Offer Received</p>
+        <p v-if="app.status === 'placed'">🏆 Successfully Placed</p>
+        <p v-if="app.status === 'rejected'">❌ Rejected</p>
+        
         <p v-if="app.feedback">Feedback: {{ app.feedback }}</p>
         <p v-if="app.interview_date">Interview: {{ app.interview_date }}</p>
       </div>
