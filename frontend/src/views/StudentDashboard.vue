@@ -51,6 +51,9 @@
       </div>
     </div>
 
+    <button @click="exportData">Export CSV</button>
+    <button @click="downloadCSV">Download CSV</button>
+
     <!-- PROFILE -->
     <div v-if="view === 'profile'">
       <input v-model="profile.education" placeholder="Education (e.g. B.Tech CSE IIT Madras)" />
@@ -136,7 +139,37 @@
 
           this.fetchApplications();
       },
+      async exportData() {
+        const token = localStorage.getItem("access_token");
 
+        await axios.post("http://127.0.0.1:5000/student/export", {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        alert("Export started!");
+      },
+      async downloadCSV() {
+        const token = localStorage.getItem("access_token");
+
+        try {
+          const response = await fetch("http://127.0.0.1:5000/student/download/export_2.csv", {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          });
+
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "export.csv";
+          a.click();
+        } catch (err) {
+          console.error(err);
+          alert("Download failed");
+        }
+      },
       async fetchApplications() {
         const token = localStorage.getItem("access_token");
         const res = await axios.get("http://127.0.0.1:5000/student/applications", {

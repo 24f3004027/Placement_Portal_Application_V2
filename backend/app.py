@@ -9,6 +9,9 @@ from flask_jwt_extended import (
     get_jwt
 )
 from flask_cors import CORS
+from celery_worker import export_csv
+from flask import send_file
+import os
 
 #Making the Flask and SQLALchemy Instances
 app = Flask(__name__)
@@ -74,7 +77,7 @@ class JobApplication(db.Model):
     feedback = db.Column(db.Text)
     interview_date = db.Column(db.String(50))
     interview_link = db.Column(db.String(255))
-
+    reminder_sent = db.Column(db.Boolean, default=False)
     student = db.relationship("StudentProfile")
     job = db.relationship("Job")
 
@@ -589,7 +592,12 @@ def schedule_interview(app_id):
     application.interview_date = interview_date
     application.interview_link = interview_link
 
-    application.status = 
+    if decision == "selected":
+        application.status = "offer"
+        application.offer_letter = offer_letter
+    else:
+        application.status = "rejected"
+
     db.session.commit()
 
     return jsonify({
@@ -886,7 +894,9 @@ def student_applications():
     student = StudentProfile.query.filter_by(user_id=user_id).first()
 
     if not student:
-        return jsonify({"msg": "Student profile not found"}), 404
+        student = StudentProfile(user_id=user_id)
+        db.session.add(student)
+        db.session.commit()
 
     apps = JobApplication.query.filter_by(student_id=student.p_id).all()
 
@@ -958,6 +968,8 @@ def update_student_profile():
 
     if not student:
         student = StudentProfile(user_id=user_id)
+        db.session.add(student)
+        db.session.commit()
 
     if "name" in data:
         if not data["name"].strip():
@@ -1016,6 +1028,31 @@ def mark_placed(app_id):
 
     return jsonify({"msg": "Student marked as placed"})
 
+@app.route("/student/export", methods=["POST"])
+@jwt_required()
+def export_data():
+    user_id = int(get_jwt_identity())
+    student = StudentProfile.query.filter_by(user_id=user_id).first()
+
+    if not student:
+        student = StudentProfile(user_id=user_id)
+        db.session.add(student)
+        db.session.commit()
+
+    task = export_csv.delay(user_id)
+    return jsonify({"msg": "Export started", "task_id": task.id})
+
+@app.route("/student/download/<filename>", methods=["GET"])
+@jwt_required()
+def download_file(filename):
+    path = os.path.join("exports", filename)
+    return send_file(path, as_attachment=True)
+
+@app.route("/reports/<filename>", methods=["GET"])
+def get_report(filename):
+    path = os.path.join("reports", filename)
+    return send_file(path, as_attachment=True)
+
 #Running of Flask and Creating the Administrator assuming the superuser doesnt exist yet
 if __name__ == '__main__':
     with app.app_context():
@@ -1034,4 +1071,4 @@ if __name__ == '__main__':
            db.session.add(admin_db)
            db.session.commit()
 
-app.run(debug = True)
+    app.run(debug=True)
