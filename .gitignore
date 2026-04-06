@@ -116,3 +116,28 @@ temp/
 *.tmp
 *.bak
 *.orig
+
+##################################################
+# Celery Beat files
+##################################################
+
+celerybeat-schedule*
+*.db
+*.dat
+*.dir
+*.bak
+*.wal
+*.shm
+##################################################
+# Other Redis Related things
+##################################################
+
+# Redis dump
+dump.rdb
+
+# Generated reports
+reports/*.json
+
+#  Generated exports
+exports/
+*.csv
