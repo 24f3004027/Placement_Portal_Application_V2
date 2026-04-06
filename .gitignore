@@ -136,7 +136,7 @@ celerybeat-schedule*
 dump.rdb
 
 # Generated reports
-reports/*.json
+backend/reports/*.json
 
 #  Generated exports
 exports/
