@@ -63,6 +63,10 @@ export default {
         localStorage.setItem("access_token", res.data.access_token)
         localStorage.setItem("role", res.data.role)
         localStorage.setItem("name", res.data.name)
+        localStorage.setItem("user_id", res.data.user_id)
+        localStorage.setItem("user_id", res.data.user_id);  
+
+        axios.defaults.headers.common["Authorization"] = `Bearer ${res.data.access_token}`;
 
         if (res.data.role === "admin") {
           this.$router.push("/admin-dashboard")
