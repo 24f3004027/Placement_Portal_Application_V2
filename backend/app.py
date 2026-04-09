@@ -11,6 +11,9 @@ from flask_jwt_extended import (
 from flask_cors import CORS
 from celery_worker import export_csv
 from flask import send_file
+from flask_caching import Cache
+from flask_mail import Mail, Message
+from datetime import datetime, timedelta
 import os
 
 #Making the Flask and SQLALchemy Instances
@@ -26,6 +29,20 @@ app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///placement.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config['JWT_SECRET_KEY'] = 'your-new-long-32-byte-hex-string-here'
 
+app.config['CACHE_TYPE'] = 'RedisCache'
+app.config['CACHE_REDIS_URL'] = 'redis://localhost:6379/0'
+app.config['CACHE_DEFAULT_TIMEOUT'] = 60
+
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'portalplacement3@gmail.com'
+app.config['MAIL_PASSWORD'] = 'jkby zwha elth qpmz'
+app.config['MAIL_DEFAULT_SENDER'] = 'portalplacement3@gmail.com'
+
+cache = Cache()
+cache.init_app(app)
+mail = Mail(app)
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
 
@@ -172,9 +189,10 @@ def login():
         additional_claims = {"role": usr.role}
     )
     return jsonify({
-    "access_token": access_token,
-    "role": usr.role,
-    "name": usr.name 
+        "access_token": access_token,
+        "role": usr.role,
+        "name": usr.name,
+        "user_id": usr.ids
     }), 200
 
 @app.route('/student/dashboard' , methods = ['GET'])
@@ -300,6 +318,8 @@ def create_job():
         return jsonify({"msg": "Company not approved"}), 403
 
     claims = get_jwt()
+
+    data = request.get_json()
     experience = data.get("experience")
 
     try:
@@ -311,8 +331,6 @@ def create_job():
 
     if claims["role"] != "company":
         return jsonify({"msg": "Unauthorized"}), 403
-
-    data = request.get_json()
 
     if (
         not data.get("title") or
@@ -346,6 +364,8 @@ def create_job():
 
     db.session.add(job)
     db.session.commit()
+
+    cache.delete_memoized(student_jobs)
     return jsonify({"msg": "Job created Successfull !!"}), 201
 
 @app.route("/company/jobs", methods=["GET"])
@@ -530,6 +550,10 @@ def update_company_profile():
 #Seeing the Company Applicants Button
 @app.route("/company/applicants", methods=["GET"])
 @jwt_required()
+@cache.cached(
+    timeout=60,
+    key_prefix=lambda: f"company_{get_jwt_identity()}_applicants"
+)
 def get_company_applicants():
 
     user_id = int(get_jwt_identity())
@@ -590,6 +614,8 @@ def decide_application(app_id):
     app.feedback = feedback
 
     db.session.commit()
+    
+    cache.delete_memoized(get_company_applicants)
     return jsonify({"msg": "Application updated"})
 
 #Scheduling the said Interviw of the appropriate candidates
@@ -627,6 +653,7 @@ def schedule_interview(app_id):
 
     db.session.commit()
 
+    cache.delete_memoized(get_company_applicants)
     return jsonify({
         "msg": "Interview scheduled successfully",
         "application_id": application.id
@@ -743,6 +770,8 @@ def final_decision(app_id):
 
     application.status = decision
     db.session.commit()
+
+    cache.delete_memoized(get_company_applicants)
     return jsonify({
         "msg": "Final decision recorded",
         "status": decision
@@ -768,6 +797,10 @@ def toggle_user(user_id):
 
 @app.route('/admin/jobs', methods=['GET'])
 @jwt_required()
+@cache.cached(
+    timeout=120,
+    key_prefix=lambda: f"admin_{get_jwt_identity()}_jobs"
+)
 def admin_jobs():
     claims = get_jwt()
 
@@ -845,6 +878,11 @@ def admin_delete_job(job_id):
 
 @app.route("/student/jobs", methods=["GET"])
 @jwt_required()
+@cache.cached(
+    timeout=60,
+    key_prefix=lambda: f"user_{get_jwt_identity()}_jobs",
+    query_string=True
+)
 def student_jobs():
     user_id = int(get_jwt_identity())
     claims = get_jwt()
@@ -892,7 +930,7 @@ def apply_job(job_id):
 
     if not student.cgpa:
         return jsonify({"msg": "Please complete your profile (CGPA required)"}), 400
-        
+
     # prevent duplicate apply
     existing = JobApplication.query.filter_by(
         job_id=job_id,
@@ -909,11 +947,18 @@ def apply_job(job_id):
 
     db.session.add(new_app)
     db.session.commit()
+    
+    cache.delete_memoized(student_applications)     
+    cache.delete_memoized(get_company_applicants)
 
     return jsonify({"msg": "Applied successfully"}), 201
 
 @app.route("/student/applications", methods=["GET"])
 @jwt_required()
+@cache.cached(
+    timeout=30,
+    key_prefix=lambda: f"user_{get_jwt_identity()}_applications"
+)
 def student_applications():
     user_id = int(get_jwt_identity())
     claims = get_jwt()
@@ -1031,6 +1076,7 @@ def update_student_profile():
     db.session.add(student)
     db.session.commit()
 
+    cache.clear()
     return jsonify({"msg": "Profile updated successfully"})
 
 @app.route("/company/application/<int:app_id>/place", methods=["PUT"])
@@ -1069,8 +1115,12 @@ def export_data():
         db.session.add(student)
         db.session.commit()
 
-    task = export_csv.delay(user_id)
-    return jsonify({"msg": "Export started", "task_id": task.id})
+    filename = export_csv(user_id)
+
+    return jsonify({
+        "msg": "Export ready",
+        "filename": filename
+    })
 
 @app.route("/student/download/<filename>", methods=["GET"])
 @jwt_required()
@@ -1082,6 +1132,38 @@ def download_file(filename):
 def get_report(filename):
     path = os.path.join("reports", filename)
     return send_file(path, as_attachment=True)
+
+@app.route("/company/export", methods=["POST"])
+@jwt_required()
+def company_export():
+    user_id = int(get_jwt_identity())
+
+    from celery_worker import export_company_csv
+
+    export_company_csv.delay(user_id)
+
+    return jsonify({"msg": "Export started"})
+
+@app.route("/company/download/<filename>")
+def company_download(filename):
+    import os
+    from flask import send_file
+
+    path = os.path.join("exports", filename)
+    return send_file(path, as_attachment=True)
+
+@app.route("/test-mail")
+def test_mail():
+    try:
+        msg = Message(
+            subject="Test Email 🚀",
+            recipients=["portalplacement3@gmail.com"],
+            body="If you see this, your Placement Portal email system works!"
+        )
+        mail.send(msg)
+        return "Email sent successfully!"
+    except Exception as e:
+        return str(e)
 
 #Running of Flask and Creating the Administrator assuming the superuser doesnt exist yet
 if __name__ == '__main__':
