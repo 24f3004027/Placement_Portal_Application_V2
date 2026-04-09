@@ -90,7 +90,7 @@ class Job(db.Model):
     location = db.Column(db.String(150))
     salary = db.Column(db.Integer)
     description = db.Column(db.Text)
-    experience = db.Column(db.String(100))
+    experience = db.Column(db.Integer)
     company_id = db.Column(db.Integer, db.ForeignKey("company.user_id"))
     benefits = db.Column(db.Text)
     status = db.Column(db.String(20), default="active")  
@@ -242,7 +242,10 @@ def company_dashboard():
     if claims["role"] != "company":
         return jsonify({"msg": "Unauthorized"}), 403
 
-    jobs_posted = Job.query.filter_by(company_id=user_id).count()
+    jobs_posted = Job.query.filter_by(
+        company_id=user_id,
+        status="active"
+    ).count()
 
     candidates_applied = (
         JobApplication.query
@@ -256,7 +259,7 @@ def company_dashboard():
         .join(Job)
         .filter(
             Job.company_id == user_id,
-            JobApplication.status.in_(["shortlisted","selected"])
+            JobApplication.status.in_(["shortlisted", "interview", "selected"])
         )
         .count()
     )
@@ -297,6 +300,14 @@ def create_job():
         return jsonify({"msg": "Company not approved"}), 403
 
     claims = get_jwt()
+    experience = data.get("experience")
+
+    try:
+        experience = int(experience)
+        if experience < 0:
+            return jsonify({"msg": "Experience must be non-negative"}), 400
+    except:
+        return jsonify({"msg": "Experience must be an integer"}), 400
 
     if claims["role"] != "company":
         return jsonify({"msg": "Unauthorized"}), 403
@@ -312,13 +323,23 @@ def create_job():
     ):
         return jsonify({"msg": "All fields are required"}), 400
 
+    existing_job = Job.query.filter(
+        Job.company_id == user_id,
+        Job.title.ilike(data["title"].strip()),
+        Job.location.ilike(data["location"].strip()),
+        Job.skills.ilike(data["skills"].strip())
+    ).first()
+
+    if existing_job:
+        return jsonify({"msg": "Similar job already exists for this role and location"}), 400
+
     job = Job(
         title=data["title"],
         location=data["location"],
         salary=data["salary"],
         description=data["description"],
         skills=data.get("skills"),
-        experience=data.get("experience"),
+        experience=experience,
         benefits=data.get("benefits"),
         company_id=user_id
     )   
@@ -416,7 +437,21 @@ def update_job(job_id):
     if "description" in data:
         job.description = data["description"].strip()
 
-    db.session.commit()
+    if "experience" in data:
+        try:
+            exp = int(data["experience"])
+            if exp < 0:
+                return jsonify({"msg": "Experience must be non-negative"}), 400
+            job.experience = exp
+        except:
+            return jsonify({"msg": "Experience must be integer"}), 400
+    
+    if "skills" in data:
+        job.skills = data["skills"].strip()
+
+    if "benefits" in data:
+        job.benefits = data["benefits"].strip()
+        db.session.commit()
 
     return jsonify({
         "msg": "Job updated successfully",
@@ -451,7 +486,7 @@ def update_company_profile():
     if claims['role'] != 'company':
         return jsonify({'msg': 'Unauthorized'}), 403
 
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     data = request.get_json()
 
     if not data:
@@ -568,14 +603,6 @@ def schedule_interview(app_id):
     if claims["role"] != "company":
         return jsonify({"msg": "Unauthorized"}), 403
 
-    data = request.get_json()
-
-    if not data:
-        return jsonify({"msg": "Invalid JSON"}), 400
-
-    interview_date = data.get("date")
-    interview_link = data.get("link")
-
     application = JobApplication.query.get(app_id)
 
     if not application:
@@ -589,14 +616,14 @@ def schedule_interview(app_id):
     if application.status != "shortlisted":
         return jsonify({"msg": "Only shortlisted candidates can be scheduled"}), 400
 
-    application.interview_date = interview_date
-    application.interview_link = interview_link
+    data = request.get_json()
 
-    if decision == "selected":
-        application.status = "offer"
-        application.offer_letter = offer_letter
-    else:
-        application.status = "rejected"
+    if not data:
+        return jsonify({"msg": "Invalid JSON"}), 400
+
+    application.interview_date = data.get("interview_date")
+    application.interview_link = data.get("interview_link")
+    application.status = "interview"
 
     db.session.commit()
 

@@ -179,7 +179,12 @@
         <textarea v-model="newJob.description" placeholder="Job Description"></textarea>
         
         <input v-model="newJob.skills" placeholder="Required Skills (e.g. Python, React)" />
-        <input v-model="newJob.experience" placeholder="Experience (e.g. 2+ years)" />
+        <input 
+          v-model.number="newJob.experience"
+          type="number"
+          min="0"
+          placeholder="Experience (in years)" 
+        />
         <textarea v-model="newJob.benefits" placeholder="Benefits (bonus, insurance, etc)"></textarea>
 
         <button class="btn-save" @click="saveJob">
@@ -347,7 +352,7 @@ export default {
           { headers: { Authorization: `Bearer ${token}` } }
         );
         applicant.status = status;
-        await this.fetchSummary(); 
+        await this.refreshDashboard();
       } catch (err) { console.error(err); }
     },
     async finalDecision(applicant, decision) {
@@ -365,6 +370,7 @@ export default {
 
       alert("Final decision saved");
       await this.viewShortlisted();
+      await this.refreshDashboard();
 
     } catch (err) {
       alert(err.response?.data?.msg || "Error saving decision");
@@ -384,7 +390,11 @@ export default {
         );
         alert("Interview Scheduled Successfully");
         await this.viewShortlisted();
-      } catch (err) { console.error("Interview Scheduling Failed:", err); }
+        await this.refreshDashboard();
+      } 
+      catch (err) {
+         console.error("Interview Scheduling Failed:", err); 
+      }
     },
     async fetchJobs() {
       const token = localStorage.getItem("access_token");
@@ -395,9 +405,25 @@ export default {
         this.jobs = res.data;
       } catch (err) { this.$router.push("/login"); }
     },
+    async refreshDashboard() {
+      await this.fetchSummary();
+      await this.fetchJobs();
+
+      if (this.showApplicants) {
+        await this.viewApplicants();
+      }
+
+      if (this.showShortlisted) {
+        await this.viewShortlisted();
+      }
+    },
     async saveJob() {
       const token = localStorage.getItem("access_token");
 
+      if (!Number.isInteger(this.newJob.experience) || this.newJob.experience < 0) {
+        alert("Experience must be a valid non-negative integer");
+        return;
+      }
       if (
         !this.newJob.title ||
         !this.newJob.description ||
@@ -431,8 +457,7 @@ export default {
         alert("Job saved successfully");
 
         this.showForm = false;
-        await this.fetchJobs();
-        await this.fetchSummary();
+        await this.refreshDashboard();
 
       } catch (err) {
         alert(err.response?.data?.msg || "Failed to save job");
@@ -445,7 +470,11 @@ export default {
           headers: { Authorization: `Bearer ${token}` }
         });
         job.status = (action === 'close') ? 'closed' : 'active';
-      } catch (err) { console.error(err); }
+        await this.refreshDashboard();
+      } 
+      catch (err) { 
+        console.error(err); 
+      }
     },
     startEdit(job) {
       this.newJob = { ...job };
