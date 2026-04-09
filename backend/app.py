@@ -890,6 +890,9 @@ def apply_job(job_id):
     if not student:
         return jsonify({"msg": "Student profile not found"}), 404
 
+    if not student.cgpa:
+        return jsonify({"msg": "Please complete your profile (CGPA required)"}), 400
+        
     # prevent duplicate apply
     existing = JobApplication.query.filter_by(
         job_id=job_id,
