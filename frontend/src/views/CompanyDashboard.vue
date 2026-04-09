@@ -11,6 +11,13 @@
       </div>
     </div>
 
+    <div style="display: flex; gap: 10px;">
+      <button @click="exportCompanyCSV">Export CSV</button>
+      <button @click="downloadCompanyCSV" :disabled="!exportReady">
+        Download CSV
+      </button>
+    </div>
+
     <div class="main-content">
       <div v-if="showProfileForm" class="form-container">
         <div class="section-header">
@@ -227,7 +234,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import axios from "../axios";
 
 export default {
   data() {
@@ -238,6 +245,7 @@ export default {
       shortlistedStudents: [],
       loading: true,
       showForm: false,
+      exportReady: false,
       showApplicants: false,
       showShortlisted: false,
       editingJobId: null,
@@ -327,6 +335,36 @@ export default {
         this.showApplicants = true;
         this.showShortlisted = false;
       } catch (err) { console.error("Applicants View Failed:", err); }
+    },
+    async exportCompanyCSV() {
+      const token = localStorage.getItem("access_token");
+
+      try {
+        await axios.post(
+          "http://127.0.0.1:5000/company/export",
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        this.exportReady = true;
+        alert("Company export started. Wait 2–3 seconds.");
+
+      } catch (err) {
+        alert("Export failed");
+      }
+    },
+    downloadCompanyCSV() {
+      if (!this.exportReady) {
+        alert("Please click Export first");
+        return;
+      }
+      
+      const user_id = localStorage.getItem("user_id");
+      alert("Downloading...");
+
+      window.open(
+        `http://127.0.0.1:5000/company/download/export_${user_id}.csv`
+      );
     },
     async viewShortlisted() {
       const token = localStorage.getItem("access_token");

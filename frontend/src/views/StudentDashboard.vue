@@ -1,97 +1,128 @@
 <template>
   <div class="dashboard">
     <div class="top-bar">
-      <h1>Welcome, {{ name }}</h1>
-      <div style="display: flex; gap: 10px;">
-      <button @click="view = 'profile'">Edit Profile</button>
-      <button @click="logout">Logout</button>
+      <div class="branding">
+        <h1>Welcome, {{ name }}</h1>
+        <p class="subtitle">Student Placement Portal</p>
+      </div>
+      
+      <div class="header-actions">
+        <template v-if="view === 'applications'">
+          <button class="btn-outline" @click="exportData">📤 Export CSV</button>
+          <button v-if="exportReady" class="btn-success" @click="downloadCSV">💾 Download</button>
+        </template>
+        
+        <button class="btn-primary" @click="view = 'profile'">Edit Profile</button>
+        <button class="btn-danger" @click="logout">Logout</button>
+      </div>
     </div>
-  </div>
 
-  <div class="menu">
-    <button :class="{ active: view === 'jobs' }" @click="view = 'jobs'">
-      Browse Jobs
-    </button>
+    <div class="navigation-menu">
+      <button :class="{ active: view === 'jobs' }" @click="view = 'jobs'">Browse Jobs</button>
+      <button :class="{ active: view === 'applications' }" @click="view = 'applications'">My Applications</button>
+      <button :class="{ active: view === 'profile' }" @click="view = 'profile'">My Profile</button>
+    </div>
 
-    <button :class="{ active: view === 'applications' }" @click="view = 'applications'">
-      My Applications
-    </button>
+    <div v-if="view === 'jobs'" class="view-container">
+      <div class="search-section">
+        <input v-model="searchQuery" placeholder="🔍 Search by title, skills, or company..." class="main-search" />
+      </div>
 
-    <button :class="{ active: view === 'profile' }" @click="view = 'profile'">
-      My Profile
-    </button>
-  </div>
-
-  <input 
-    v-model="searchQuery" 
-    placeholder="Search by title, skills, company..." 
-    class="search-bar"
-  />
-  <!-- JOBS -->
-    <div v-if="view === 'jobs'">
-      <h2>Available Jobs</h2>
-      <div v-for="job in filteredJobs" :key="job.id" class="card">
-        <h3>{{ job.title }}</h3>
-        <p>{{ job.description }}</p>
-        <p><b>Skills:</ b> {{ job.skills }}</p>
+      <div class="section-header">
+        <h2>Available Opportunities</h2>
+      </div>
+      
+      <div v-for="job in filteredJobs" :key="job.id" class="job-card">
+        <div class="job-info">
+          <h3>{{ job.title }}</h3>
+          <p class="description">{{ job.description }}</p>
+          <p class="skills-tag"><b>Required:</b> {{ job.skills }}</p>
+        </div>
         <button 
           @click="apply(job.id)" 
+          :class="['apply-btn', { applied: appliedJobs.has(job.id) }]"
           :disabled="appliedJobs.has(job.id)"
         >
-          {{ appliedJobs.has(job.id) ? "Applied" : "Apply" }}
+          {{ appliedJobs.has(job.id) ? "Applied" : "Apply Now" }}
         </button>
       </div>
     </div>
 
-    <!-- APPLICATIONS -->
-    <div v-if="view === 'applications'">
-      <h2>My Applications</h2>
-      
-      <div style="margin-bottom: 15px;">
-        <button @click="exportData">Export CSV</button>
-        <button @click="downloadCSV">Download CSV</button>
+    <div v-if="view === 'applications'" class="view-container">
+      <div class="section-header">
+        <h2>My Applications</h2>
       </div>
 
-      <div v-for="app in applications" :key="app.id" class="card">
-        <h3>{{ app.job_title }}</h3>
-        <p><b>Status:</b> {{ app.status.toUpperCase() }}</p>
-        <a 
-        v-if="app.offer_letter && app.status === 'selected'" 
-        :href="app.offer_letter" 
-        target="_blank"
-      >
-        📄 View Offer Letter
-      </a>
+      <div v-for="app in applications" :key="app.id" class="app-card">
+        <div class="app-header">
+          <h3>{{ app.job_title }}</h3>
+          <span :class="['status-badge', app.status]">{{ app.status.toUpperCase() }}</span>
+        </div>
 
-        <p v-if="app.status === 'interview'">📅 Interview Scheduled</p>
-        <p v-if="app.status === 'offer'">🎉 Offer Received</p>
-        <p v-if="app.status === 'placed'">🏆 Successfully Placed</p>
-        <p v-if="app.status === 'rejected'">❌ Rejected</p>
-        
-        <p v-if="app.feedback">Feedback: {{ app.feedback }}</p>
-        <p v-if="app.interview_date">Interview: {{ app.interview_date }}</p>
+        <div class="app-body">
+          <p v-if="app.interview_date">📅 Interview: {{ app.interview_date }}</p>
+          <p v-if="app.feedback">💬 Feedback: {{ app.feedback }}</p>
+          <a v-if="app.offer_letter && app.status === 'selected'" :href="app.offer_letter" target="_blank" class="offer-link">
+            📄 Download Offer Letter
+          </a>
+        </div>
       </div>
     </div>
 
-    <div v-if="view === 'profile'">
-      <input v-model="profile.education" placeholder="Education (e.g. B.Tech CSE IIT Madras)" />
-      <input v-model="profile.skills" placeholder="Skills (comma separated)" />
-      <textarea v-model="profile.experience" placeholder="Experience (internships, projects)"></textarea>
-      
-      <h2>My Profile</h2>
-      <input v-model="profile.name" placeholder="Name" />
-      <input v-model="profile.email" placeholder="Email" />
-      <input v-model="profile.password" placeholder="New Password" type="password" />
-      <input v-model="profile.department" placeholder="Department" />
-      <input v-model="profile.cgpa" placeholder="CGPA" />
-      <input v-model="profile.resume" placeholder="Resume Link" />
-      <button @click="updateProfile">Save</button>
+    <div v-if="view === 'profile'" class="view-container">
+      <div class="profile-card">
+        <div class="form-section">
+          <h2 class="form-heading">Personal Information</h2>
+          <div class="form-grid">
+            <div class="field">
+              <label>Full Name</label>
+              <input v-model="profile.name" placeholder="Full Name" />
+            </div>
+            <div class="field">
+              <label>Email Address</label>
+              <input v-model="profile.email" placeholder="Email" />
+            </div>
+            <div class="field">
+              <label>Department</label>
+              <input v-model="profile.department" placeholder="e.g. Computer Science" />
+            </div>
+            <div class="field">
+              <label>Current CGPA</label>
+              <input v-model="profile.cgpa" placeholder="0.00" />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h2 class="form-heading">Academic & Professional</h2>
+          <div class="vertical-fields">
+            <div class="field">
+              <label>Education</label>
+              <input v-model="profile.education" placeholder="Degree, University" />
+            </div>
+            <div class="field">
+              <label>Technical Skills</label>
+              <input v-model="profile.skills" placeholder="Java, Python, Vue, etc." />
+            </div>
+            <div class="field">
+              <label>Work/Project Experience</label>
+              <textarea v-model="profile.experience" placeholder="Describe your experience..."></textarea>
+            </div>
+            <div class="field">
+              <label>Resume Link</label>
+              <input v-model="profile.resume" placeholder="Public Link (Google Drive/GitHub)" />
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-save" @click="updateProfile">Save Profile Changes</button>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
-  import axios from "axios";
+  import axios from "../axios";
 
   export default {
     data() {
@@ -99,6 +130,7 @@
         name: localStorage.getItem("name"),
         view: "jobs",
         searchQuery: "",
+        exportReady: false,
         jobs: [],
         appliedJobs: new Set(),
         applications: [],
@@ -176,31 +208,57 @@
       },
       async exportData() {
         const token = localStorage.getItem("access_token");
+        try {
+          await axios.post(
+            "http://127.0.0.1:5000/student/export",
+            {},
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
 
-        await axios.post("http://127.0.0.1:5000/student/export", {}, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
+        this.exportReady = true;
         alert("Export started!");
+
+        } 
+        catch (err) {
+          alert("Export failed");
+        }
       },
       async downloadCSV() {
+        if (!this.exportReady) {
+          alert("Please click Export first");
+          return;
+        }
+
         const token = localStorage.getItem("access_token");
+        const user_id = localStorage.getItem("user_id");
 
         try {
-          const response = await fetch("http://127.0.0.1:5000/student/download/export_2.csv", {
-            headers: {
-              Authorization: `Bearer ${token}`
+          alert("Downloading...");
+
+          const response = await fetch(
+            `http://127.0.0.1:5000/student/download/export_${user_id}.csv`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`
+              }
             }
-          });
+          );
+
+          if (!response.ok) {
+            throw new Error("Download failed");
+          }
 
           const blob = await response.blob();
           const url = window.URL.createObjectURL(blob);
 
           const a = document.createElement("a");
           a.href = url;
-          a.download = "export.csv";
+          a.download = `export_${user_id}.csv`;
           a.click();
-        } catch (err) {
+
+          window.URL.revokeObjectURL(url);
+        } 
+        catch (err) {
           console.error(err);
           alert("Download failed");
         }
@@ -260,161 +318,159 @@
 
 <style scoped>
 
-  .dashboard {
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 20px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    color: #333;
-    background-color: #f8f9fa;
-    min-height: 100vh;
-  }
+.dashboard {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #2d3748;
+  background-color: #f7fafc;
+  min-height: 100vh;
+}
 
-  .top-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
-    padding-bottom: 15px;
-    border-bottom: 2px solid #eee;
-  }
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
 
-  .top-bar h1 {
-    font-size: 1.8rem;
-    color: #2c3e50;
-    margin: 0;
-  }
+.branding h1 { margin: 0; font-size: 1.8rem; color: #1a202c; }
+.subtitle { margin: 4px 0 0; color: #718096; font-size: 0.9rem; }
 
-  .top-bar button {
-    background-color: #e74c3c;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.3s;
-  }
+.header-actions { display: flex; gap: 10px; }
 
-  .top-bar button:hover {
-    background-color: #c0392b;
-  }
+button {
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
 
-  .menu button.active {
-    background-color: #3498db;
-    color: white;
-  }
+.btn-primary { background: #3182ce; color: white; }
+.btn-primary:hover { background: #2b6cb0; }
+.btn-outline { background: white; border: 1px solid #cbd5e0; color: #4a5568; }
+.btn-success { background: #38a169; color: white; }
+.btn-danger { background: #fff5f5; color: #e53e3e; border: 1px solid #feb2b2; }
 
-  button:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
-  }
+.navigation-menu {
+  display: flex;
+  background: white;
+  padding: 8px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  margin-bottom: 30px;
+}
 
-  .menu {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 30px;
-  }
+.navigation-menu button {
+  flex: 1;
+  background: transparent;
+  color: #718096;
+}
 
-  .menu button {
-    flex: 1;
-    padding: 12px;
-    border: 1px solid #ddd;
-    background: white;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
-    color: #666;
-    transition: all 0.2s ease;
-  }
+.navigation-menu button.active {
+  background: #3182ce;
+  color: white;
+}
 
-  .menu button:hover {
-    background-color: #f0f4f8;
-    border-color: #3498db;
-    color: #3498db;
-  }
+.view-container { animation: fadeIn 0.3s ease-in; }
+.main-search {
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  font-size: 1rem;
+  margin-bottom: 25px;
+  box-sizing: border-box;
+}
 
-  .top-bar div button:first-child {
-    background-color: #3498db;
-    color: white;
-  }
+.job-card, .app-card {
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 
-  .card {
-    background: white;
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    border-left: 5px solid #3498db;
-    transition: transform 0.2s;
-  }
+.app-card { flex-direction: column; align-items: flex-start; }
 
-  .card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  }
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+.status-badge.applied { background: #ebf8ff; color: #2b6cb0; }
+.status-badge.selected { background: #f0fff4; color: #2f855a; }
+.status-badge.rejected { background: #fff5f5; color: #c53030; }
 
-  .card h3 {
-    margin-top: 0;
-    color: #2c3e50;
-  }
+.profile-card {
+  background: white;
+  padding: 40px;
+  border-radius: 15px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
 
-  .card p {
-    line-height: 1.6;
-    color: #555;
-  }
+.form-section { margin-bottom: 35px; }
+.form-heading {
+  font-size: 1.2rem;
+  margin-bottom: 20px;
+  color: #2d3748;
+  border-left: 4px solid #3182ce;
+  padding-left: 15px;
+}
 
-  .card button {
-    background-color: #27ae60;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-weight: bold;
-  }
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
 
-  .card button:hover {
-    background-color: #219150;
-  }
+.vertical-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
 
-  input {
-    display: block;
-    width: 100%;
-    padding: 12px;
-    margin-bottom: 15px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    box-sizing: border-box; 
-    font-size: 1rem;
-  }
+.field { display: flex; flex-direction: column; gap: 8px; }
+.field label { font-size: 0.85rem; font-weight: 700; color: #4a5568; }
 
-  input:focus {
-    outline: none;
-    border-color: #3498db;
-    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-  }
+input, textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cbd5e0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  box-sizing: border-box; 
+}
+textarea { min-height: 100px; resize: vertical; }
 
-  div[v-if="view === 'profile'"] button {
-    width: 100%;
-    background-color: #3498db;
-    color: white;
-    border: none;
-    padding: 12px;
-    border-radius: 6px;
-    font-size: 1.1rem;
-    font-weight: bold;
-    cursor: pointer;
-  }
+.btn-save {
+  width: 100%;
+  padding: 15px;
+  background: #2d3748;
+  color: white;
+  font-size: 1rem;
+  margin-top: 10px;
+}
 
-  div[v-if="view === 'profile'"] button:hover {
-    background-color: #2980b9;
-  }
+.btn-save:hover { background: #1a202c; }
 
-  .card p b {
-    color: #34495e;
-  }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
-  .menu button.active:hover {
-    background-color: #2980b9;
-  }
+@media (max-width: 768px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .top-bar { flex-direction: column; align-items: flex-start; gap: 15px; }
+  .job-card { flex-direction: column; align-items: flex-start; gap: 15px; }
+}
+
 </style>
