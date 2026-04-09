@@ -137,6 +137,7 @@ dump.rdb
 
 # Generated reports
 backend/reports/*.json
+backend/reports/
 
 #  Generated exports
 exports/
