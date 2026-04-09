@@ -1,21 +1,35 @@
 <template>
   <div class="dashboard">
     <div class="top-bar">
-      <h1>Welcome, {{ companyName }}</h1>
+      <div class="branding">
+        <h1>Welcome, {{ companyName }}</h1>
+        <p class="subtitle">Company Recruitment Dashboard</p>
+      </div>
       
-      <div style="display: flex; gap: 10px;">
-        <button class="edit-profile-btn" @click="openProfileEdit">
-          Edit Profile
-        </button>
-        <button class="logout-btn" @click="logout">Logout</button>
+      <div class="header-actions">
+        <div class="btn-group">
+          <button class="edit-profile-btn" @click="openProfileEdit">Edit Profile</button>
+          <button class="logout-btn" @click="logout">Logout</button>
+        </div>
       </div>
     </div>
 
-    <div style="display: flex; gap: 10px;">
-      <button @click="exportCompanyCSV">Export CSV</button>
-      <button @click="downloadCompanyCSV" :disabled="!exportReady">
-        Download CSV
-      </button>
+    <div class="action-bar">
+      <div class="action-group">
+        <span class="action-label">Data Export:</span>
+        <button class="btn-secondary" @click="exportCompanyCSV">Export CSV</button>
+        <button class="btn-secondary" @click="downloadCompanyCSV" :disabled="!exportReady">
+          Download CSV
+        </button>
+      </div>
+
+      <div class="action-group">
+        <span class="action-label">Analytics:</span>
+        <button class="btn-report" @click="generateReport">Generate Report</button>
+        <button class="btn-report" @click="downloadReport" :disabled="!reportFile">
+          Download PDF Report
+        </button>
+      </div>
     </div>
 
     <div class="main-content">
@@ -25,13 +39,13 @@
           <button class="close-btn" @click="showProfileForm = false">✕</button>
         </div>
 
-        <input v-model="profileForm.name" placeholder="Company Name" />
-        <input v-model="profileForm.email" placeholder="Email" />
-        <input v-model="profileForm.password" type="password" placeholder="New Password (optional)" />
+        <div class="form-grid">
+          <input v-model="profileForm.name" placeholder="Company Name" />
+          <input v-model="profileForm.email" placeholder="Email" />
+          <input v-model="profileForm.password" type="password" placeholder="New Password (optional)" />
+        </div>
 
-        <button class="btn-save" @click="updateProfile">
-          Save Changes
-        </button>
+        <button class="btn-save" @click="updateProfile">Save Changes</button>
       </div>
 
       <div class="cards-grid">
@@ -76,9 +90,6 @@
           <div v-else class="status-badge" :class="a.status">
             <p><strong>Status:</strong> {{ a.status.toUpperCase() }}</p>
             <p v-if="a.feedback"><strong>Feedback:</strong> {{ a.feedback }}</p>
-            <p v-if="a.status === 'shortlisted'" style="font-size: 0.85rem; margin-top: 5px; color: #166534;">
-              <i>Go to "Shortlisted List" to schedule the interview.</i>
-            </p>
           </div>
         </div>
       </div>
@@ -112,49 +123,21 @@
                   <div v-if="s.status === 'shortlisted' && !s.interview_date">
                     <input type="datetime-local" v-model="s.temp_date" class="interview-input" />
                     <input type="text" v-model="s.temp_link" placeholder="Meeting Link" class="interview-input" />
-                    <button class="btn-shortlist" style="padding: 5px 10px; font-size: 0.8rem;" @click="scheduleInterview(s)">
-                      Set Interview
-                    </button>
+                    <button class="btn-shortlist" @click="scheduleInterview(s)">Set Interview</button>
                   </div>
 
                   <div v-else-if="s.status === 'shortlisted' && s.interview_date">
-                    <div class="status-tag active" style="padding: 8px; display: block; text-align: center; margin-bottom: 5px;">
-                      📅 {{ s.interview_date }}<br>
-                      <a :href="s.interview_link" target="_blank" style="color: inherit; font-size: 0.75rem;">
-                        Join Meeting
-                      </a>
-                    </div>
-
-                    <input 
-                      type="text" 
-                      v-model="s.offer_letter" 
-                      placeholder="Offer Letter Link" 
-                      class="interview-input"
-                    />
-
-                    <div class="btn-group" style="justify-content: center; gap: 5px;">
-                      <button 
-                        class="btn-shortlist" 
-                        style="padding: 4px 8px; font-size: 0.75rem;" 
-                        @click="finalDecision(s, 'selected')"
-                      >
-                        Select
-                      </button>
-
-                      <button 
-                        class="btn-reject" 
-                        style="padding: 4px 8px; font-size: 0.75rem;" 
-                        @click="finalDecision(s, 'rejected')"
-                      >
-                        Reject
-                      </button>
+                    <div class="status-tag active">📅 {{ s.interview_date }}</div>
+                    <input type="text" v-model="s.offer_letter" placeholder="Offer Letter Link" class="interview-input" />
+                    <div class="btn-group">
+                      <button class="btn-shortlist" @click="finalDecision(s, 'selected')">Select</button>
+                      <button class="btn-reject" @click="finalDecision(s, 'rejected')">Reject</button>
                     </div>
                   </div>
 
                   <div v-else>
-                    <div :class="['status-badge', s.status]" style="margin: 0; padding: 10px; text-align: center;">
+                    <div :class="['status-badge', s.status]">
                        <strong style="text-transform: uppercase;">{{ s.status }}</strong>
-                       <p v-if="s.status === 'selected'" style="font-size: 0.7rem; margin: 5px 0 0;">Candidate Hired</p>
                     </div>
                   </div>
                 </td>
@@ -184,15 +167,9 @@
           <input v-model="newJob.salary" placeholder="Salary" type="number" />
         </div>
         <textarea v-model="newJob.description" placeholder="Job Description"></textarea>
-        
-        <input v-model="newJob.skills" placeholder="Required Skills (e.g. Python, React)" />
-        <input 
-          v-model.number="newJob.experience"
-          type="number"
-          min="0"
-          placeholder="Experience (in years)" 
-        />
-        <textarea v-model="newJob.benefits" placeholder="Benefits (bonus, insurance, etc)"></textarea>
+        <input v-model="newJob.skills" placeholder="Required Skills" />
+        <input v-model.number="newJob.experience" type="number" placeholder="Years of Experience" />
+        <textarea v-model="newJob.benefits" placeholder="Benefits"></textarea>
 
         <button class="btn-save" @click="saveJob">
           {{ editingJobId ? "Update Listing" : "Post Job" }}
@@ -205,26 +182,17 @@
         <div v-for="job in jobs" :key="job.id" class="item-card" :class="{ 'job-closed': job.status === 'closed' }">
           <div class="item-header">
             <div>
-              <h3>{{ job.title }} 
-                <span :class="['status-tag', job.status]">{{ job.status }}</span>
-              </h3>
+              <h3>{{ job.title }} <span :class="['status-tag', job.status]">{{ job.status }}</span></h3>
               <p class="text-muted">{{ job.location }} • ${{ job.salary }}</p>
             </div>
             <div class="item-actions">
-              <button class="btn-icon" @click="viewApplicants(job.id)">
-                Applicants
-              </button>
+              <button class="btn-icon" @click="viewApplicants(job.id)">Applicants</button>
               <button v-if="job.status === 'active'" class="btn-icon warning" @click="toggleJobStatus(job, 'close')">Close</button>
               <button v-else class="btn-icon success-alt" @click="toggleJobStatus(job, 'open')">Reopen</button>
               <button class="btn-icon" @click="startEdit(job)">Edit</button>
               <button class="btn-icon delete" @click="deleteJob(job.id)">Delete</button>
             </div>
           </div>
-          <p>{{ job.description }}</p>
-
-          <p v-if="job.skills"><b>Skills:</b> {{ job.skills }}</p>
-          <p v-if="job.experience"><b>Experience:</b> {{ job.experience }}</p>
-          <p v-if="job.benefits"><b>Benefits:</b> {{ job.benefits }}</p>
         </div>
       </div>
 
@@ -244,8 +212,10 @@ export default {
       applicants: [],
       shortlistedStudents: [],
       loading: true,
+      reportReady: false,
       showForm: false,
       exportReady: false,
+      reportFile: null,
       showApplicants: false,
       showShortlisted: false,
       editingJobId: null,
@@ -290,6 +260,41 @@ export default {
         console.error("Profile load failed:", err);
       }
     },
+
+    async fetchJobs() {
+      const token = localStorage.getItem("access_token");
+      const res = await axios.get("http://127.0.0.1:5000/student/jobs", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      this.jobs = res.data;
+    },
+
+    async exportReport() {
+      try 
+      {
+        await fetch("http://127.0.0.1:5000/admin/generate-report");
+
+        this.reportReady = true;
+        alert("Report generated successfully!");
+      } 
+      catch (err) 
+      {
+        alert("Failed to generate report");
+      }
+    },
+
+    downloadReport() 
+    {
+      if (!this.reportReady) {
+        alert("Generate report first");
+        return;
+      }
+      window.open(
+        "http://127.0.0.1:5000/admin/download-report/placement_report_latest.pdf"
+      );
+    },
+
     async updateProfile() {
       const token = localStorage.getItem("access_token");
       try {
@@ -327,7 +332,6 @@ export default {
           headers: { Authorization: `Bearer ${token}` }
         });
         
-        // Filter by jobId if provided
         this.applicants = jobId 
           ? res.data.filter(a => a.job_id === jobId)
           : res.data;
@@ -544,7 +548,55 @@ export default {
 </script>
 
 <style scoped>
-  
+
+  .action-bar {
+    background: white;
+    padding: 1rem 2rem;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+  }
+
+  .action-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .action-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+  }
+
+  .btn-secondary {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+  }
+
+  .btn-report {
+    background: #4f46e5;
+    color: white;
+  }
+
+  .btn-report:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+  }
+
+  .edit-profile-btn {
+    background: #334155;
+    color: white;
+  }
+
+  .logout-btn {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+
   .dashboard {
     background: #f8fafc;
     min-height: 100vh;

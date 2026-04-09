@@ -9,7 +9,7 @@ from flask_jwt_extended import (
     get_jwt
 )
 from flask_cors import CORS
-from celery_worker import export_csv
+from celery_worker import export_csv, generate_reports
 from flask import send_file
 from flask_caching import Cache
 from flask_mail import Mail, Message
@@ -980,6 +980,7 @@ def student_applications():
         result.append({
             "id": a.id,
             "job_title": a.job.title,
+            "job_id": a.job.id, 
             "status": a.status,
             "feedback": a.feedback,
             "interview_date": a.interview_date,
@@ -999,6 +1000,10 @@ def get_student_profile():
         return jsonify({"msg": "Unauthorized Role"}), 403
 
     student = StudentProfile.query.filter_by(user_id=user_id).first()
+
+    if not student:
+        student = StudentProfile(user_id=user_id)
+        db.session.add(student)
 
     user = db.session.get(User, user_id)
 
@@ -1164,6 +1169,16 @@ def test_mail():
         return "Email sent successfully!"
     except Exception as e:
         return str(e)
+
+@app.route("/admin/download-report/<filename>")
+def download_report(filename):
+    path = os.path.join("reports", filename)
+    return send_file(path, as_attachment=True)
+
+@app.route("/admin/generate-report")
+def trigger_report():
+    filename = generate_reports()
+    return jsonify({"filename": filename})
 
 #Running of Flask and Creating the Administrator assuming the superuser doesnt exist yet
 if __name__ == '__main__':

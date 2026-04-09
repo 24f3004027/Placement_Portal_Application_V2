@@ -7,6 +7,9 @@
       </div>
       
       <div class="header-actions">
+        <button class="btn-report" @click="exportReport">📤 Export Report</button>
+        <button class="btn-report" @click="downloadReport">📥 Download Report</button>
+
         <template v-if="view === 'applications'">
           <button class="btn-outline" @click="exportData">📤 Export CSV</button>
           <button v-if="exportReady" class="btn-success" @click="downloadCSV">💾 Download</button>
@@ -130,8 +133,10 @@
         name: localStorage.getItem("name"),
         view: "jobs",
         searchQuery: "",
+        reportReady: false,
         exportReady: false,
         jobs: [],
+        reportFile: null,
         appliedJobs: new Set(),
         applications: [],
         profile: {
@@ -174,12 +179,40 @@
     },
 
     methods: {
-      async fetchJobs() {
+     async fetchJobs() {
         const token = localStorage.getItem("access_token");
+
         const res = await axios.get("http://127.0.0.1:5000/student/jobs", {
           headers: { Authorization: `Bearer ${token}` }
         });
+
         this.jobs = res.data;
+      },
+
+      async exportReport() {
+        try 
+        {
+          await fetch("http://127.0.0.1:5000/admin/generate-report");
+
+          this.reportReady = true;
+          alert("Report generated successfully!");
+        } 
+        catch (err) 
+        {
+          alert("Failed to generate report");
+        }
+      },
+
+      downloadReport() 
+      {
+          if (!this.reportReady)
+           {
+              alert("Generate report first");
+              return;
+            }
+        window.open(
+          "http://127.0.0.1:5000/admin/download-report/placement_report_latest.pdf"
+        );
       },
 
       async apply(jobId) {
@@ -317,6 +350,22 @@
 </script>
 
 <style scoped>
+
+.btn-report {
+  background: #4f46e5; 
+  color: white;
+}
+
+.btn-report:hover {
+  background: #4338ca;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap; 
+  justify-content: flex-end;
+}
 
 .dashboard {
   max-width: 1100px;

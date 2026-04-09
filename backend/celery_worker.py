@@ -9,7 +9,8 @@ from celery.schedules import crontab
 import csv
 
 from flask_mail import Message
-
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
 
 celery = Celery(
     "tasks",
@@ -62,7 +63,7 @@ def send_interview_reminders():
 
     with app.app_context():
         now = datetime.now()
-        upcoming = now + timedelta(day = 1)
+        upcoming = now + timedelta(days = 1)
 
         interviews = JobApplication.query.filter(
             JobApplication.interview_date != None
@@ -113,13 +114,22 @@ def send_interview_reminders():
 @celery.task
 def generate_reports():
     from app import app, db, Job, JobApplication
-    import os, json, time
+    import os, time, shutil   # 🔥 ADD shutil
 
     with app.app_context():
-        print("📊 Generating placement reports...")
+        print("📊 Generating placement PDF report...")
 
         jobs = Job.query.all()
-        report = {}
+        styles = getSampleStyleSheet()
+
+        os.makedirs("reports", exist_ok=True)
+        filename = f"reports/placement_report_{int(time.time())}.pdf"
+
+        doc = SimpleDocTemplate(filename)
+        elements = []
+
+        elements.append(Paragraph("Placement Report", styles["Title"]))
+        elements.append(Spacer(1, 20))
 
         for job in jobs:
             apps = JobApplication.query.filter_by(job_id=job.id).all()
@@ -129,21 +139,29 @@ def generate_reports():
             rejected = len([a for a in apps if a.status == "rejected"])
             shortlisted = len([a for a in apps if a.status == "shortlisted"])
 
-            report[job.title] = {
-                "total": total,
-                "selected": selected,
-                "rejected": rejected,
-                "shortlisted": shortlisted
-            }
+            text = f"""
+            Job: {job.title}<br/>
+            Location: {job.location}<br/>
+            Total Applications: {total}<br/>
+            Shortlisted: {shortlisted}<br/>
+            Selected: {selected}<br/>
+            Rejected: {rejected}<br/><br/>
+            """
 
-        os.makedirs("reports", exist_ok=True)
+            elements.append(Paragraph(text, styles["Normal"]))
+            elements.append(Spacer(1, 15))
 
-        filename = f"reports/placement_report_{int(time.time())}.json"
+        doc.build(elements)
 
-        with open(filename, "w") as f:
-            json.dump(report, f, indent=4)
+        print(f"📄 PDF Report generated: {filename}")
 
-        print(f"📊 Report generated: {filename}")
+        # 🔥 ADD THIS BLOCK (IMPORTANT)
+        latest_path = "reports/placement_report_latest.pdf"
+        shutil.copy(filename, latest_path)
+
+        print("📄 Latest report updated")
+
+        return filename
 
 @celery.task
 def export_company_csv(user_id):
