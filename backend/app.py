@@ -897,6 +897,12 @@ def student_jobs():
 
     result = []
 
+    student = StudentProfile.query.filter_by(user_id=user_id).first()
+
+    applied_job_ids = set(
+        a.job_id for a in JobApplication.query.filter_by(student_id=student.p_id).all()
+    ) if student else set()
+
     for j in jobs:
         company = User.query.get(j.company_id)
 
@@ -909,7 +915,8 @@ def student_jobs():
             "skills": j.skills,
             "experience": j.experience,
             "benefits": j.benefits,
-            "company_name": company.name if company else "Unknown"
+            "company_name": company.name if company else "Unknown",
+            "applied": j.id in applied_job_ids 
         })
 
     return jsonify(result)
@@ -948,7 +955,8 @@ def apply_job(job_id):
     db.session.add(new_app)
     db.session.commit()
     
-    cache.delete_memoized(student_applications)     
+    cache.delete_memoized(student_applications) 
+    cache.delete_memoized(student_jobs)    
     cache.delete_memoized(get_company_applicants)
 
     return jsonify({"msg": "Applied successfully"}), 201

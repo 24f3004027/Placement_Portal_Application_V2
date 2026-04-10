@@ -43,10 +43,10 @@
         </div>
         <button 
           @click="apply(job.id)" 
-          :class="['apply-btn', { applied: appliedJobs.has(job.id) }]"
-          :disabled="appliedJobs.has(job.id)"
+          :class="['apply-btn', { applied: job.applied }]"
+          :disabled="job.applied"
         >
-          {{ appliedJobs.has(job.id) ? "Applied" : "Apply Now" }}
+          {{ job.applied ? "Applied" : "Apply Now" }}
         </button>
       </div>
     </div>
@@ -230,6 +230,9 @@
           );
 
             alert(res.data.msg || "Applied successfully");
+
+            const job = this.jobs.find(j => j.id === jobId);
+            if (job) job.applied = true;
 
           } catch (err) {
             alert(err.response?.data?.msg || "Apply failed");
