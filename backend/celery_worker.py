@@ -165,34 +165,54 @@ def generate_reports():
 
 @celery.task
 def export_company_csv(user_id):
-    writer.writerow([
-        "Job Title",
-        "Location",
-        "Total Applicants",
-        "Shortlisted",
-        "Selected",
-        "Rejected"
-    ])
+    from app import app, db, Job, JobApplication
+    import os, csv
+    from datetime import datetime
 
-    for job in jobs:
-        apps = JobApplication.query.filter_by(job_id=job.id).all()
+    with app.app_context():
 
-        total = len(apps)
-        shortlisted = len([a for a in apps if a.status == "shortlisted"])
-        selected = len([a for a in apps if a.status == "selected"])
-        rejected = len([a for a in apps if a.status == "rejected"])
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        EXPORT_FOLDER = os.path.join(BASE_DIR, "exports")
+        os.makedirs(EXPORT_FOLDER, exist_ok=True)
 
-        writer.writerow([f"Report Generated At: {datetime.datetime.now()}"])
-        writer.writerow([])  
+        filepath = os.path.join(EXPORT_FOLDER, f"export_{user_id}.csv")
 
-        writer.writerow([
-            job.title,
-            job.location,
-            total,
-            shortlisted,
-            selected,
-            rejected
-        ])
+        jobs = Job.query.filter_by(company_id=user_id).all()
+
+        with open(filepath, "w", newline="") as f:
+            writer = csv.writer(f)
+
+            writer.writerow(["Report Generated At:", str(datetime.now())])
+            writer.writerow([])
+
+            writer.writerow([
+                "Job Title",
+                "Location",
+                "Total Applicants",
+                "Shortlisted",
+                "Selected",
+                "Rejected"
+            ])
+
+            for job in jobs:
+                apps = JobApplication.query.filter_by(job_id=job.id).all()
+
+                total = len(apps)
+                shortlisted = len([a for a in apps if a.status == "shortlisted"])
+                selected = len([a for a in apps if a.status == "selected"])
+                rejected = len([a for a in apps if a.status == "rejected"])
+
+                writer.writerow([
+                    job.title,
+                    job.location,
+                    total,
+                    shortlisted,
+                    selected,
+                    rejected
+                ])
+
+        print("✅ Company CSV generated at:", filepath)
+        return filepath
 
 def send_email(to, subject, body):
     msg = Message(
