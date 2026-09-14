@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Placement Portal V2 | Full-Stack Asynchronous Platform</title>
+  <meta name="description" content="A high-performance, asynchronous campus recruitment and placement management platform built with Vue 3, Flask, Redis, Celery, and ReportLab.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Background Decorative Ambient Glows -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="nav-container">
+      <div class="brand">
+        <span class="brand-icon">🎓</span>
+        <span class="brand-name">Placement Portal <span class="badge-version">v2.0</span></span>
+      </div>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#roles">Portals</a>
+        <a href="#tech-stack">Tech Stack</a>
+        <a href="https://github.com/24f3004027/Placement_Portal_Application_V2" target="_blank" class="btn-github">
+          <svg class="github-icon" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub Repo
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <header class="hero">
+    <div class="hero-container">
+      <div class="pill-banner">
+        <span class="pulse-dot"></span>
+        Modern Application Development II (MAD-II) Capstone Project
+      </div>
+      <h1 class="hero-title">
+        High-Performance Campus <br>
+        <span class="text-gradient">Placement Portal Engine</span>
+      </h1>
+      <p class="hero-description">
+        An enterprise-grade, asynchronous full-stack web application connecting Students, Corporate Recruiters, and Placement Administrators. Optimized with Redis caching, Celery background workers, and ReportLab PDF analytics.
+      </p>
+
+      <div class="hero-badges">
+        <span class="badge">🐍 Python 3.10+</span>
+        <span class="badge">⚡ Flask REST API</span>
+        <span class="badge">🟢 Vue.js 3 SPA</span>
+        <span class="badge">🚀 Vite 5</span>
+        <span class="badge">🔑 JWT Auth</span>
+        <span class="badge">🔴 Redis Caching</span>
+        <span class="badge">🌿 Celery Workers</span>
+        <span class="badge">📄 ReportLab PDF</span>
+        <span class="badge badge-copyleft">🄯 GNU GPLv3</span>
+      </div>
+
+      <div class="hero-cta">
+        <a href="https://github.com/24f3004027/Placement_Portal_Application_V2" target="_blank" class="btn btn-primary">
+          🚀 View Source Code
+        </a>
+        <a href="#architecture" class="btn btn-secondary">
+          🏗️ Explore Architecture
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- System Overview Stats -->
+  <section class="stats-section">
+    <div class="stats-container">
+      <div class="stat-box">
+        <div class="stat-number">3</div>
+        <div class="stat-label">Multi-Tenant User Roles (Student, Company, Admin)</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-number">Sub-50ms</div>
+        <div class="stat-label">API Latency via Redis Cache Invalidation</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-number">100%</div>
+        <div class="stat-label">Non-blocking Asynchronous Background Processing</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-number">GPLv3</div>
+        <div class="stat-label">Copyleft Open Source License</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Key Architecture & System Design -->
+  <section id="architecture" class="section">
+    <div class="section-container">
+      <div class="section-header">
+        <h2 class="section-title">Decoupled Asynchronous Architecture</h2>
+        <p class="section-subtitle">Designed to maintain high HTTP throughput by offloading long-running tasks to background Celery workers.</p>
+      </div>
+
+      <div class="architecture-grid">
+        <div class="arch-card">
+          <div class="arch-icon">🎨</div>
+          <h3>Client Layer (SPA)</h3>
+          <p>Built with Vue 3 and Vite using Composition API. Features interactive dashboards, reactive real-time application updates, and Axios JWT interceptors.</p>
+        </div>
+
+        <div class="arch-card">
+          <div class="arch-icon">⚡</div>
+          <h3>API Gateway & Security</h3>
+          <p>Flask REST API gateway enforcing Role-Based Access Control (RBAC), password hashing via Werkzeug, and stateless JWT token authentication.</p>
+        </div>
+
+        <div class="arch-card">
+          <div class="arch-icon">🔴</div>
+          <h3>Distributed Redis Caching</h3>
+          <p>High-speed key-value caching layer via Flask-Caching. Automatically invalidates cached endpoints upon database mutation to guarantee fresh data reads.</p>
+        </div>
+
+        <div class="arch-card">
+          <div class="arch-icon">🔄</div>
+          <h3>Celery Worker Cluster</h3>
+          <p>Asynchronous job processing framework. Handles background CSV data exports, ReportLab PDF report generation, and Celery Beat cron notifications.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Role Portals Showcase -->
+  <section id="roles" class="section section-dark">
+    <div class="section-container">
+      <div class="section-header">
+        <h2 class="section-title">Multi-Tenant Role Portals</h2>
+        <p class="section-subtitle">Tailored workflows designed for candidates, recruiters, and placement administrators.</p>
+      </div>
+
+      <div class="portals-grid">
+        <!-- Student Portal Card -->
+        <div class="portal-card">
+          <div class="portal-header">
+            <span class="portal-badge student-badge">Student Portal</span>
+            <h3>Candidate Experience</h3>
+          </div>
+          <ul class="portal-features">
+            <li>✔ Browse job listings filtered by company, skills, or salary</li>
+            <li>✔ Single-click job application with profile CGPA validation</li>
+            <li>✔ Real-time status tracking (Applied, Shortlisted, Interview, Selected)</li>
+            <li>✔ Asynchronous background CSV application history export</li>
+            <li>✔ Download placement analytics PDF reports</li>
+          </ul>
+        </div>
+
+        <!-- Company Recruiter Card -->
+        <div class="portal-card">
+          <div class="portal-header">
+            <span class="portal-badge company-badge">Recruiter Portal</span>
+            <h3>Corporate Hiring Suite</h3>
+          </div>
+          <ul class="portal-features">
+            <li>✔ Corporate registration and admin approval workflow</li>
+            <li>✔ Post, edit, close, or reopen campus recruitment drives</li>
+            <li>✔ Review student applicants, resume links, and CGPAs</li>
+            <li>✔ Shortlist candidates and schedule interview rounds with Meet/Zoom links</li>
+            <li>✔ Generate and download comprehensive company recruitment CSVs</li>
+          </ul>
+        </div>
+
+        <!-- Admin Control Panel Card -->
+        <div class="portal-card">
+          <div class="portal-header">
+            <span class="portal-badge admin-badge">Admin Control</span>
+            <h3>Placement Audit Panel</h3>
+          </div>
+          <ul class="portal-features">
+            <li>✔ Verify and approve corporate recruiter registrations</li>
+            <li>✔ Monitor real-time system metrics (Students, Companies, Jobs, Applications)</li>
+            <li>✔ Audit and delete fraudulent or obsolete job postings</li>
+            <li>✔ Toggle user access and blacklist accounts</li>
+            <li>✔ Trigger automated system-wide placement PDF report builds</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Technical Stack Breakdown -->
+  <section id="tech-stack" class="section">
+    <div class="section-container">
+      <div class="section-header">
+        <h2 class="section-title">Enterprise Tech Stack</h2>
+        <p class="section-subtitle">Leveraging modern web engineering tools across frontend, backend, database, and message brokers.</p>
+      </div>
+
+      <div class="tech-grid">
+        <div class="tech-box">
+          <h4>Frontend</h4>
+          <p>Vue.js 3 • Vite • Vue Router 4 • Axios • CSS3 Flexbox/Grid</p>
+        </div>
+        <div class="tech-box">
+          <h4>Backend API</h4>
+          <p>Python 3.10+ • Flask • Flask-RESTful • Flask-CORS • Flask-JWT-Extended</p>
+        </div>
+        <div class="tech-box">
+          <h4>Database & ORM</h4>
+          <p>SQLite3 • Flask-SQLAlchemy ORM • Declarative Schema Relations</p>
+        </div>
+        <div class="tech-box">
+          <h4>Async Queue & Cache</h4>
+          <p>Celery 5 • Celery Beat • Redis Server • Flask-Caching</p>
+        </div>
+        <div class="tech-box">
+          <h4>Reports & Mail</h4>
+          <p>ReportLab PDF Engine • Flask-Mail • SMTP Gmail TLS Integrations</p>
+        </div>
+        <div class="tech-box">
+          <h4>Security & Spec</h4>
+          <p>Werkzeug Salted Password Hashing • Open API Specification (YAML)</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Developer Card & Open Source Section -->
+  <section class="developer-section">
+    <div class="developer-card">
+      <div class="dev-avatar">🎓</div>
+      <div class="dev-info">
+        <h3>Ramrup Satpati</h3>
+        <p class="dev-role">BS in Data Science & Applications | Indian Institute of Technology Madras</p>
+        <p class="dev-bio">
+          Developed as part of the Modern Application Development II (MAD-II) curriculum. Architected around distributed task execution, microservice separation, and high-concurrency background job processing.
+        </p>
+        <div class="dev-links">
+          <a href="https://github.com/24f3004027/Placement_Portal_Application_V2" target="_blank" class="dev-btn">GitHub Repository</a>
+          <a href="https://github.com/24f3004027" target="_blank" class="dev-btn dev-btn-secondary">GitHub Profile</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-container">
+      <p class="copyleft-symbol">
+        🄯 Copyleft 2026 Ramrup Satpati (Roll No: 24f3004027) | All Rights Reversed
+      </p>
+      <p class="license-note">
+        Released under the <strong>GNU General Public License v3.0 (GPLv3)</strong>. Free software for open science and education.
+      </p>
+    </div>
+  </footer>
+
+</body>
+</html>
