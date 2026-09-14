@@ -5,19 +5,760 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Placement Portal V2 | Full-Stack Asynchronous Platform</title>
   <meta name="description" content="A high-performance, asynchronous campus recruitment and placement management platform built with Vue 3, Flask, Redis, Celery, and ReportLab.">
-  <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #0b0f19;
+      --bg-card: rgba(18, 24, 38, 0.75);
+      --bg-card-hover: rgba(26, 35, 54, 0.9);
+      --border-card: rgba(255, 255, 255, 0.08);
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --accent-blue: #3b82f6;
+      --accent-purple: #8b5cf6;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #ef4444;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Scroll Progress Bar */
+    #progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple), #f472b6);
+      width: 0%;
+      z-index: 1000;
+      transition: width 0.1s ease;
+    }
+
+    /* Ambient Glow Background Accents */
+    .ambient-glow {
+      position: absolute;
+      width: 650px;
+      height: 650px;
+      border-radius: 50%;
+      filter: blur(140px);
+      pointer-events: none;
+      z-index: 0;
+      animation: floatGlow 12s ease-in-out infinite alternate;
+    }
+
+    .glow-1 {
+      background: rgba(59, 130, 246, 0.18);
+      top: -100px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .glow-2 {
+      background: rgba(139, 92, 246, 0.15);
+      top: 650px;
+      right: -80px;
+      animation-delay: -5s;
+    }
+
+    .glow-interactive {
+      position: fixed;
+      width: 400px;
+      height: 400px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.12) 0%, transparent 70%);
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      z-index: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    @keyframes floatGlow {
+      0% { transform: translate(-50%, 0) scale(1); }
+      50% { transform: translate(-45%, 40px) scale(1.08); }
+      100% { transform: translate(-55%, -20px) scale(0.95); }
+    }
+
+    /* Navigation Bar */
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(11, 15, 25, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-card);
+      padding: 1rem 2rem;
+      transition: all 0.3s ease;
+    }
+
+    .navbar.scrolled {
+      padding: 0.75rem 2rem;
+      background: rgba(11, 15, 25, 0.95);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-weight: 800;
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    .brand-icon {
+      display: inline-block;
+      transition: transform 0.3s ease;
+    }
+
+    .brand:hover .brand-icon {
+      transform: scale(1.2) rotate(-8deg);
+    }
+
+    .badge-version {
+      font-size: 0.75rem;
+      background: rgba(59, 130, 246, 0.2);
+      color: var(--accent-blue);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      padding: 0.15rem 0.5rem;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1.8rem;
+    }
+
+    .nav-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      position: relative;
+      transition: color 0.2s;
+    }
+
+    .nav-links a::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      width: 0%;
+      height: 2px;
+      background: var(--accent-blue);
+      transition: width 0.3s ease;
+    }
+
+    .nav-links a:hover {
+      color: var(--text-primary);
+    }
+
+    .nav-links a:hover::after {
+      width: 100%;
+    }
+
+    .btn-github {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-card);
+      color: var(--text-primary) !important;
+      padding: 0.45rem 0.9rem;
+      border-radius: 6px;
+      font-weight: 600 !important;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+
+    .btn-github:hover {
+      background: rgba(255, 255, 255, 0.2) !important;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1);
+    }
+
+    /* Hero Section */
+    .hero {
+      position: relative;
+      z-index: 1;
+      padding: 7rem 2rem 5rem 2rem;
+      text-align: center;
+    }
+
+    .hero-container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .pill-banner {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: var(--accent-blue);
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.4rem 1rem;
+      border-radius: 30px;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+      animation: pulseBorder 3s infinite alternate;
+    }
+
+    @keyframes pulseBorder {
+      0% { border-color: rgba(59, 130, 246, 0.3); box-shadow: 0 0 10px rgba(59, 130, 246, 0.1); }
+      100% { border-color: rgba(139, 92, 246, 0.6); box-shadow: 0 0 25px rgba(139, 92, 246, 0.25); }
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background-color: var(--accent-green);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--accent-green);
+      animation: blink 1.5s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
+    }
+
+    .hero-title {
+      font-size: 3.6rem;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -1.2px;
+      margin-bottom: 1.25rem;
+    }
+
+    .text-gradient {
+      background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #f472b6 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: textGradientShift 6s linear infinite;
+    }
+
+    @keyframes textGradientShift {
+      0% { background-position: 0% center; }
+      100% { background-position: 200% center; }
+    }
+
+    .hero-description {
+      font-size: 1.15rem;
+      color: var(--text-secondary);
+      max-width: 720px;
+      margin-bottom: 2.2rem;
+      line-height: 1.7;
+    }
+
+    .hero-badges {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.6rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .badge {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-card);
+      color: var(--text-secondary);
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 0.35rem 0.8rem;
+      border-radius: 6px;
+      transition: all 0.3s ease;
+      cursor: default;
+    }
+
+    .badge:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--text-primary);
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .badge-copyleft {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--accent-green);
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+
+    .hero-cta {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      padding: 0.85rem 1.8rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 1rem;
+      text-decoration: none;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary {
+      background: var(--accent-blue);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #2563eb;
+      transform: translateY(-3px);
+      box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+      border: 1px solid var(--border-card);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.16);
+      transform: translateY(-3px);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    /* Stats Section */
+    .stats-section {
+      position: relative;
+      z-index: 1;
+      padding: 2rem 2rem 4rem 2rem;
+    }
+
+    .stats-container {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .stat-box {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-card);
+      padding: 2rem 1.75rem;
+      border-radius: 12px;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    .stat-box:hover {
+      transform: translateY(-4px);
+      border-color: rgba(59, 130, 246, 0.3);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .stat-number {
+      font-size: 2.4rem;
+      font-weight: 800;
+      color: var(--accent-blue);
+      margin-bottom: 0.4rem;
+      letter-spacing: -0.5px;
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    /* Sections */
+    .section {
+      position: relative;
+      z-index: 1;
+      padding: 5rem 2rem;
+    }
+
+    .section-dark {
+      background: rgba(10, 14, 23, 0.65);
+      border-top: 1px solid var(--border-card);
+      border-bottom: 1px solid var(--border-card);
+    }
+
+    .section-container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .section-header {
+      text-align: center;
+      max-width: 700px;
+      margin: 0 auto 3.5rem auto;
+    }
+
+    .section-title {
+      font-size: 2.2rem;
+      font-weight: 800;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.5px;
+    }
+
+    .section-subtitle {
+      font-size: 1rem;
+      color: var(--text-secondary);
+    }
+
+    /* Architecture Grid */
+    .architecture-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      perspective: 1000px;
+    }
+
+    .arch-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-card);
+      padding: 2rem;
+      border-radius: 14px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+      transform-style: preserve-3d;
+    }
+
+    .arch-card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(59, 130, 246, 0.4);
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
+    }
+
+    .arch-icon {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      display: inline-block;
+      transition: transform 0.3s ease;
+    }
+
+    .arch-card:hover .arch-icon {
+      transform: scale(1.15) rotate(5deg);
+    }
+
+    .arch-card h3 {
+      font-size: 1.2rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .arch-card p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Portals Grid */
+    .portals-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .portal-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      padding: 2.2rem;
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .portal-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: transparent;
+      transition: background 0.3s ease;
+    }
+
+    .portal-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+    }
+
+    .portal-card:nth-child(1):hover { border-color: rgba(59, 130, 246, 0.5); }
+    .portal-card:nth-child(1):hover::before { background: var(--accent-blue); }
+
+    .portal-card:nth-child(2):hover { border-color: rgba(245, 158, 11, 0.5); }
+    .portal-card:nth-child(2):hover::before { background: var(--accent-amber); }
+
+    .portal-card:nth-child(3):hover { border-color: rgba(239, 68, 68, 0.5); }
+    .portal-card:nth-child(3):hover::before { background: var(--accent-rose); }
+
+    .portal-header {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .portal-header h3 {
+      font-size: 1.3rem;
+    }
+
+    .portal-badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.25rem 0.6rem;
+      border-radius: 20px;
+    }
+
+    .student-badge { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
+    .company-badge { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+    .admin-badge { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+
+    .portal-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .portal-features li {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      transition: transform 0.2s ease, color 0.2s ease;
+    }
+
+    .portal-features li:hover {
+      color: var(--text-primary);
+      transform: translateX(4px);
+    }
+
+    /* Tech Stack Grid */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .tech-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      padding: 1.8rem;
+      border-radius: 12px;
+      transition: all 0.3s ease;
+    }
+
+    .tech-box:hover {
+      border-color: rgba(59, 130, 246, 0.4);
+      background: var(--bg-card-hover);
+      transform: translateY(-3px);
+    }
+
+    .tech-box h4 {
+      color: var(--accent-blue);
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .tech-box p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+
+    /* Developer Section */
+    .developer-section {
+      position: relative;
+      z-index: 1;
+      padding: 4rem 2rem 6rem 2rem;
+    }
+
+    .developer-card {
+      max-width: 800px;
+      margin: 0 auto;
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 16px;
+      padding: 3rem;
+      display: flex;
+      gap: 2.2rem;
+      align-items: center;
+      box-shadow: 0 15px 50px rgba(0, 0, 0, 0.45);
+      transition: transform 0.3s ease;
+    }
+
+    .developer-card:hover {
+      transform: translateY(-4px);
+    }
+
+    .dev-avatar {
+      font-size: 4rem;
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      padding: 1rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 25px rgba(59, 130, 246, 0.2);
+    }
+
+    .dev-info h3 {
+      font-size: 1.6rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .dev-role {
+      font-size: 0.88rem;
+      color: var(--accent-blue);
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+
+    .dev-bio {
+      font-size: 0.92rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+
+    .dev-links {
+      display: flex;
+      gap: 0.8rem;
+    }
+
+    .dev-btn {
+      padding: 0.55rem 1.2rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-decoration: none;
+      background: var(--accent-blue);
+      color: white;
+      transition: all 0.2s ease;
+    }
+
+    .dev-btn:hover {
+      background: #2563eb;
+      transform: translateY(-2px);
+    }
+
+    .dev-btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+      border: 1px solid var(--border-card);
+    }
+
+    .dev-btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.18);
+      transform: translateY(-2px);
+    }
+
+    /* Footer */
+    .footer {
+      position: relative;
+      z-index: 1;
+      background: rgba(5, 8, 15, 0.95);
+      border-top: 1px solid var(--border-card);
+      padding: 2.5rem 2rem;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .footer-container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .copyleft-symbol {
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+    }
+
+    .license-note strong {
+      color: var(--accent-green);
+    }
+
+    /* Scroll Animation Reveal Classes */
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .reveal.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 768px) {
+      .hero-title { font-size: 2.4rem; }
+      .developer-card { flex-direction: column; text-align: center; padding: 2rem; }
+      .nav-links { display: none; }
+      .glow-interactive { display: none; }
+    }
+  </style>
 </head>
 <body>
+
+  <!-- Top Scroll Progress Bar -->
+  <div id="progress-bar"></div>
 
   <!-- Background Decorative Ambient Glows -->
   <div class="ambient-glow glow-1"></div>
   <div class="ambient-glow glow-2"></div>
+  <div class="glow-interactive" id="mouse-glow"></div>
 
   <!-- Navigation Bar -->
-  <nav class="navbar">
+  <nav class="navbar" id="navbar">
     <div class="nav-container">
       <div class="brand">
         <span class="brand-icon">🎓</span>
@@ -38,7 +779,7 @@
 
   <!-- Hero Section -->
   <header class="hero">
-    <div class="hero-container">
+    <div class="hero-container reveal">
       <div class="pill-banner">
         <span class="pulse-dot"></span>
         Modern Application Development II (MAD-II) Capstone Project
@@ -75,21 +816,21 @@
   </header>
 
   <!-- System Overview Stats -->
-  <section class="stats-section">
+  <section class="stats-section" id="features">
     <div class="stats-container">
-      <div class="stat-box">
-        <div class="stat-number">3</div>
+      <div class="stat-box reveal">
+        <div class="stat-number" data-target="3" data-prefix="" data-suffix="">0</div>
         <div class="stat-label">Multi-Tenant User Roles (Student, Company, Admin)</div>
       </div>
-      <div class="stat-box">
-        <div class="stat-number">Sub-50ms</div>
+      <div class="stat-box reveal">
+        <div class="stat-number" data-target="50" data-prefix="Sub-" data-suffix="ms">0</div>
         <div class="stat-label">API Latency via Redis Cache Invalidation</div>
       </div>
-      <div class="stat-box">
-        <div class="stat-number">100%</div>
+      <div class="stat-box reveal">
+        <div class="stat-number" data-target="100" data-prefix="" data-suffix="%">0</div>
         <div class="stat-label">Non-blocking Asynchronous Background Processing</div>
       </div>
-      <div class="stat-box">
+      <div class="stat-box reveal">
         <div class="stat-number">GPLv3</div>
         <div class="stat-label">Copyleft Open Source License</div>
       </div>
@@ -99,31 +840,31 @@
   <!-- Key Architecture & System Design -->
   <section id="architecture" class="section">
     <div class="section-container">
-      <div class="section-header">
+      <div class="section-header reveal">
         <h2 class="section-title">Decoupled Asynchronous Architecture</h2>
         <p class="section-subtitle">Designed to maintain high HTTP throughput by offloading long-running tasks to background Celery workers.</p>
       </div>
 
       <div class="architecture-grid">
-        <div class="arch-card">
+        <div class="arch-card tilt-card reveal">
           <div class="arch-icon">🎨</div>
           <h3>Client Layer (SPA)</h3>
           <p>Built with Vue 3 and Vite using Composition API. Features interactive dashboards, reactive real-time application updates, and Axios JWT interceptors.</p>
         </div>
 
-        <div class="arch-card">
+        <div class="arch-card tilt-card reveal">
           <div class="arch-icon">⚡</div>
           <h3>API Gateway & Security</h3>
           <p>Flask REST API gateway enforcing Role-Based Access Control (RBAC), password hashing via Werkzeug, and stateless JWT token authentication.</p>
         </div>
 
-        <div class="arch-card">
+        <div class="arch-card tilt-card reveal">
           <div class="arch-icon">🔴</div>
           <h3>Distributed Redis Caching</h3>
           <p>High-speed key-value caching layer via Flask-Caching. Automatically invalidates cached endpoints upon database mutation to guarantee fresh data reads.</p>
         </div>
 
-        <div class="arch-card">
+        <div class="arch-card tilt-card reveal">
           <div class="arch-icon">🔄</div>
           <h3>Celery Worker Cluster</h3>
           <p>Asynchronous job processing framework. Handles background CSV data exports, ReportLab PDF report generation, and Celery Beat cron notifications.</p>
@@ -135,14 +876,13 @@
   <!-- Role Portals Showcase -->
   <section id="roles" class="section section-dark">
     <div class="section-container">
-      <div class="section-header">
+      <div class="section-header reveal">
         <h2 class="section-title">Multi-Tenant Role Portals</h2>
         <p class="section-subtitle">Tailored workflows designed for candidates, recruiters, and placement administrators.</p>
       </div>
 
       <div class="portals-grid">
-        <!-- Student Portal Card -->
-        <div class="portal-card">
+        <div class="portal-card reveal">
           <div class="portal-header">
             <span class="portal-badge student-badge">Student Portal</span>
             <h3>Candidate Experience</h3>
@@ -156,8 +896,7 @@
           </ul>
         </div>
 
-        <!-- Company Recruiter Card -->
-        <div class="portal-card">
+        <div class="portal-card reveal">
           <div class="portal-header">
             <span class="portal-badge company-badge">Recruiter Portal</span>
             <h3>Corporate Hiring Suite</h3>
@@ -171,8 +910,7 @@
           </ul>
         </div>
 
-        <!-- Admin Control Panel Card -->
-        <div class="portal-card">
+        <div class="portal-card reveal">
           <div class="portal-header">
             <span class="portal-badge admin-badge">Admin Control</span>
             <h3>Placement Audit Panel</h3>
@@ -192,33 +930,33 @@
   <!-- Technical Stack Breakdown -->
   <section id="tech-stack" class="section">
     <div class="section-container">
-      <div class="section-header">
+      <div class="section-header reveal">
         <h2 class="section-title">Enterprise Tech Stack</h2>
         <p class="section-subtitle">Leveraging modern web engineering tools across frontend, backend, database, and message brokers.</p>
       </div>
 
       <div class="tech-grid">
-        <div class="tech-box">
+        <div class="tech-box reveal">
           <h4>Frontend</h4>
           <p>Vue.js 3 • Vite • Vue Router 4 • Axios • CSS3 Flexbox/Grid</p>
         </div>
-        <div class="tech-box">
+        <div class="tech-box reveal">
           <h4>Backend API</h4>
           <p>Python 3.10+ • Flask • Flask-RESTful • Flask-CORS • Flask-JWT-Extended</p>
         </div>
-        <div class="tech-box">
+        <div class="tech-box reveal">
           <h4>Database & ORM</h4>
           <p>SQLite3 • Flask-SQLAlchemy ORM • Declarative Schema Relations</p>
         </div>
-        <div class="tech-box">
+        <div class="tech-box reveal">
           <h4>Async Queue & Cache</h4>
           <p>Celery 5 • Celery Beat • Redis Server • Flask-Caching</p>
         </div>
-        <div class="tech-box">
+        <div class="tech-box reveal">
           <h4>Reports & Mail</h4>
           <p>ReportLab PDF Engine • Flask-Mail • SMTP Gmail TLS Integrations</p>
         </div>
-        <div class="tech-box">
+        <div class="tech-box reveal">
           <h4>Security & Spec</h4>
           <p>Werkzeug Salted Password Hashing • Open API Specification (YAML)</p>
         </div>
@@ -228,7 +966,7 @@
 
   <!-- Developer Card & Open Source Section -->
   <section class="developer-section">
-    <div class="developer-card">
+    <div class="developer-card reveal">
       <div class="dev-avatar">🎓</div>
       <div class="dev-info">
         <h3>Ramrup Satpati</h3>
@@ -256,5 +994,101 @@
     </div>
   </footer>
 
+  <!-- Dynamic Client-Side Scripts -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // 1. Scroll Progress Bar & Navbar Styling
+      const progressBar = document.getElementById('progress-bar');
+      const navbar = document.getElementById('navbar');
+
+      window.addEventListener('scroll', () => {
+        const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+        const progress = (window.pageYOffset / totalHeight) * 100;
+        progressBar.style.width = progress + '%';
+
+        if (window.scrollY > 30) {
+          navbar.classList.add('scrolled');
+        } else {
+          navbar.classList.remove('scrolled');
+        }
+      });
+
+      // 2. Interactive Spotlight Following Mouse
+      const mouseGlow = document.getElementById('mouse-glow');
+      window.addEventListener('mousemove', (e) => {
+        mouseGlow.style.left = `${e.clientX}px`;
+        mouseGlow.style.top = `${e.clientY}px`;
+      });
+
+      // 3. Scroll Reveal Animation via IntersectionObserver
+      const revealElements = document.querySelectorAll('.reveal');
+      const revealObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('active');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, {
+        threshold: 0.12,
+        rootMargin: "0px 0px -40px 0px"
+      });
+
+      revealElements.forEach(el => revealObserver.observe(el));
+
+      // 4. Dynamic Number Counter Animation
+      const statNumbers = document.querySelectorAll('.stat-number[data-target]');
+      let statsStarted = false;
+
+      const countUp = (el) => {
+        const target = parseInt(el.getAttribute('data-target'), 10);
+        const prefix = el.getAttribute('data-prefix') || '';
+        const suffix = el.getAttribute('data-suffix') || '';
+        const duration = 1600;
+        const stepTime = 25;
+        const steps = duration / stepTime;
+        const increment = target / steps;
+        let current = 0;
+
+        const timer = setInterval(() => {
+          current += increment;
+          if (current >= target) {
+            el.textContent = `${prefix}${target}${suffix}`;
+            clearInterval(timer);
+          } else {
+            el.textContent = `${prefix}${Math.floor(current)}${suffix}`;
+          }
+        }, stepTime);
+      };
+
+      const statsSection = document.querySelector('.stats-section');
+      const statsObserver = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && !statsStarted) {
+          statsStarted = true;
+          statNumbers.forEach(num => countUp(num));
+        }
+      }, { threshold: 0.3 });
+
+      statsObserver.observe(statsSection);
+
+      // 5. 3D Subtle Tilt Effect for Architecture Cards
+      const tiltCards = document.querySelectorAll('.tilt-card');
+      tiltCards.forEach(card => {
+        card.addEventListener('mousemove', (e) => {
+          const rect = card.getBoundingClientRect();
+          const x = e.clientX - rect.left - rect.width / 2;
+          const y = e.clientY - rect.top - rect.height / 2;
+          const rotateX = (-y / (rect.height / 2)) * 7;
+          const rotateY = (x / (rect.width / 2)) * 7;
+
+          card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-4px)`;
+        });
+
+        card.addEventListener('mouseleave', () => {
+          card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0)';
+        });
+      });
+    });
+  </script>
 </body>
 </html>
