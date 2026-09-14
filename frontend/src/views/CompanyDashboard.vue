@@ -1,521 +1,400 @@
 <template>
-  <div class="dashboard">
-    <div class="top-bar">
-      <div class="branding">
-        <h1>Welcome, {{ companyName }}</h1>
-        <p class="subtitle">Company Recruitment Dashboard</p>
+  <div class="dashboard-page">
+    <div class="dashboard-header">
+      <div class="header-text">
+        <h1>Recruiter Dashboard</h1>
+        <p>Manage job drives, evaluate candidate applications, and schedule interview rounds</p>
       </div>
-      
+
       <div class="header-actions">
-        <div class="btn-group">
-          <button class="edit-profile-btn" @click="openProfileEdit">Edit Profile</button>
-          <button class="logout-btn" @click="logout">Logout</button>
+        <button class="btn btn-outline" @click="openProfileEdit">⚙️ Profile Settings</button>
+        <button class="btn btn-purple" @click="exportCompanyCSV">📤 Export CSV</button>
+        <button class="btn btn-success" @click="downloadCompanyCSV" :disabled="!exportReady">💾 Download CSV</button>
+        <button class="btn btn-outline" @click="generateReport">📊 Report PDF</button>
+        <button class="btn btn-success" @click="downloadReport" :disabled="!reportFile">📥 Download PDF</button>
+      </div>
+    </div>
+
+    <!-- Stats Summary Section -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">💼</div>
+        <div class="stat-info">
+          <p class="stat-label">Active Jobs Posted</p>
+          <h2 class="stat-value">{{ summary.jobs_posted }}</h2>
+        </div>
+      </div>
+
+      <div class="stat-card clickable" @click="viewApplicants()">
+        <div class="stat-icon">👥</div>
+        <div class="stat-info">
+          <p class="stat-label">Candidates Applied</p>
+          <h2 class="stat-value">{{ summary.candidates_applied }}</h2>
+          <span class="stat-link">Review Applicants →</span>
+        </div>
+      </div>
+
+      <div class="stat-card clickable" @click="viewShortlisted">
+        <div class="stat-icon">⭐</div>
+        <div class="stat-info">
+          <p class="stat-label">Shortlisted Candidates</p>
+          <h2 class="stat-value">{{ summary.candidates_shortlisted }}</h2>
+          <span class="stat-link">Manage Shortlist →</span>
         </div>
       </div>
     </div>
 
-    <div class="action-bar">
-      <div class="action-group">
-        <span class="action-label">Data Export:</span>
-        <button class="btn-secondary" @click="exportCompanyCSV">Export CSV</button>
-        <button class="btn-secondary" @click="downloadCompanyCSV" :disabled="!exportReady">
-          Download CSV
-        </button>
+    <!-- Edit Profile Modal / Form -->
+    <div v-if="showProfileForm" class="modal-card">
+      <div class="modal-header">
+        <h3>Edit Company Profile</h3>
+        <button class="btn-close" @click="showProfileForm = false">✕</button>
       </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Company Name</label>
+          <input v-model="profileForm.name" placeholder="Company Name" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Official Email</label>
+          <input v-model="profileForm.email" placeholder="Email" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>New Password (optional)</label>
+          <input v-model="profileForm.password" type="password" placeholder="••••••••" class="form-control" />
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" @click="updateProfile">Save Profile Changes</button>
+    </div>
 
-      <div class="action-group">
-        <span class="action-label">Analytics:</span>
-        <button class="btn-report" @click="generateReport">Generate Report</button>
-        <button class="btn-report" @click="downloadReport" :disabled="!reportFile">
-          Download PDF Report
-        </button>
+    <!-- Applicants Section -->
+    <div v-if="showApplicants" class="modal-card">
+      <div class="modal-header">
+        <h3>Candidate Applications</h3>
+        <button class="btn-close" @click="showApplicants = false">✕</button>
+      </div>
+      <div v-if="applicants.length === 0" class="empty-text">No candidate applications found.</div>
+      <div v-for="a in applicants" :key="a.application_id" class="applicant-item">
+        <div class="applicant-info">
+          <h4>{{ a.student_name }}</h4>
+          <p><strong>Position:</strong> {{ a.job_title }} | <strong>Department:</strong> {{ a.department || 'N/A' }} | <strong>CGPA:</strong> {{ a.cgpa || 'N/A' }}</p>
+          <a v-if="a.resume" :href="a.resume" target="_blank" class="link-resume">📄 View Resume</a>
+        </div>
+
+        <div v-if="!a.status || a.status === 'applied'" class="decision-box">
+          <textarea v-model="a.feedback" placeholder="Add candidate feedback..." class="form-control textarea-small"></textarea>
+          <div class="btn-group">
+            <button class="btn btn-success" @click="handleDecision(a, 'shortlisted')">Shortlist</button>
+            <button class="btn btn-danger" @click="handleDecision(a, 'rejected')">Reject</button>
+          </div>
+        </div>
+        <div v-else class="status-pill" :class="a.status">
+          <strong>Status: {{ a.status.toUpperCase() }}</strong>
+          <p v-if="a.feedback">Feedback: {{ a.feedback }}</p>
+        </div>
       </div>
     </div>
 
-    <div class="main-content">
-      <div v-if="showProfileForm" class="form-container">
-        <div class="section-header">
-          <h2>Edit Company Profile</h2>
-          <button class="close-btn" @click="showProfileForm = false">✕</button>
-        </div>
-
-        <div class="form-grid">
-          <input v-model="profileForm.name" placeholder="Company Name" />
-          <input v-model="profileForm.email" placeholder="Email" />
-          <input v-model="profileForm.password" type="password" placeholder="New Password (optional)" />
-        </div>
-
-        <button class="btn-save" @click="updateProfile">Save Changes</button>
+    <!-- Shortlisted Section -->
+    <div v-if="showShortlisted" class="modal-card">
+      <div class="modal-header">
+        <h3>Shortlisted Candidates & Interview Schedules</h3>
+        <button class="btn-close" @click="showShortlisted = false">✕</button>
       </div>
+      <div v-if="shortlistedStudents.length === 0" class="empty-text">No shortlisted candidates yet.</div>
+      <div v-else class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Candidate</th>
+              <th>Position</th>
+              <th>Interview Scheduling / Final Offer</th>
+              <th>Resume</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="s in shortlistedStudents" :key="s.application_id">
+              <td>
+                <strong>{{ s.name }}</strong><br>
+                <small>{{ s.department }} | {{ s.cgpa }} CGPA</small>
+              </td>
+              <td>{{ s.job_title }}</td>
+              <td>
+                <div v-if="s.status === 'shortlisted' && !s.interview_date" class="schedule-inputs">
+                  <input type="datetime-local" v-model="s.temp_date" class="form-control" />
+                  <input type="text" v-model="s.temp_link" placeholder="Google Meet / Zoom Link" class="form-control" />
+                  <button class="btn btn-primary" @click="scheduleInterview(s)">Schedule Interview</button>
+                </div>
 
-      <div class="cards-grid">
-        <div class="card">
-          <p class="card-label">Jobs Posted</p>
-          <h2 class="card-value">{{ summary.jobs_posted }}</h2>
-        </div>
-
-        <div class="card clickable" @click="viewApplicants()">
-          <p class="card-label">Candidates Applied</p>
-          <h2 class="card-value">{{ summary.candidates_applied }}</h2>
-          <span class="card-action">View Applicants →</span>
-        </div>
-
-        <div class="card clickable" @click="viewShortlisted">
-          <p class="card-label">Shortlisted</p>
-          <h2 class="card-value">{{ summary.candidates_shortlisted }}</h2>
-          <span class="card-action">View List →</span>
-        </div>
-      </div>
-
-      <div v-if="showApplicants" class="section-container">
-        <div class="section-header">
-          <h2>Candidate Applications</h2>
-          <button class="close-btn" @click="showApplicants = false">✕</button>
-        </div>
-        
-        <div v-for="a in applicants" :key="a.application_id" class="item-card">
-          <div class="item-info">
-            <h3>{{ a.student_name }}</h3>
-            <p><b>Applied For:</b> {{ a.job_title }} | <b>CGPA:</b> {{ a.cgpa }}</p>
-          </div>
-
-          <div v-if="!a.status || a.status === 'applied'" class="action-area">
-            <textarea v-model="a.feedback" placeholder="Add feedback..." class="feedback-input"></textarea>
-            <div class="btn-group">
-              <button class="btn-shortlist" @click="handleDecision(a, 'shortlisted')">Shortlist</button>
-              <button class="btn-reject" @click="handleDecision(a, 'rejected')">Reject</button>
-            </div>
-          </div>
-
-          <div v-else class="status-badge" :class="a.status">
-            <p><strong>Status:</strong> {{ a.status.toUpperCase() }}</p>
-            <p v-if="a.feedback"><strong>Feedback:</strong> {{ a.feedback }}</p>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="showShortlisted" class="section-container">
-        <div class="section-header">
-          <h2>Shortlisted Candidates</h2>
-          <button class="close-btn" @click="showShortlisted = false">✕</button>
-        </div>
-
-        <div v-if="shortlistedStudents.length === 0" class="empty-state">No shortlisted candidates yet.</div>
-
-        <div class="table-container" v-else>
-          <table class="styled-table">
-            <thead>
-              <tr>
-                <th>Candidate Details</th>
-                <th>Position</th>
-                <th>Interview Scheduling</th>
-                <th>Resume</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="s in shortlistedStudents" :key="s.application_id">
-                <td>
-                  <b>{{ s.name }}</b><br>
-                  <small>{{ s.department }} | {{ s.cgpa }} CGPA</small>
-                </td>
-                <td>{{ s.job_title }}</td>
-                <td>
-                  <div v-if="s.status === 'shortlisted' && !s.interview_date">
-                    <input type="datetime-local" v-model="s.temp_date" class="interview-input" />
-                    <input type="text" v-model="s.temp_link" placeholder="Meeting Link" class="interview-input" />
-                    <button class="btn-shortlist" @click="scheduleInterview(s)">Set Interview</button>
+                <div v-else-if="s.status === 'shortlisted' || s.status === 'interview'" class="decision-inputs">
+                  <div class="interview-badge">📅 {{ s.interview_date }}</div>
+                  <input type="text" v-model="s.offer_letter" placeholder="Offer Letter URL" class="form-control" />
+                  <div class="btn-group">
+                    <button class="btn btn-success" @click="finalDecision(s, 'selected')">Offer Job</button>
+                    <button class="btn btn-danger" @click="finalDecision(s, 'rejected')">Reject</button>
                   </div>
+                </div>
 
-                  <div v-else-if="s.status === 'shortlisted' && s.interview_date">
-                    <div class="status-tag active">📅 {{ s.interview_date }}</div>
-                    <input type="text" v-model="s.offer_letter" placeholder="Offer Letter Link" class="interview-input" />
-                    <div class="btn-group">
-                      <button class="btn-shortlist" @click="finalDecision(s, 'selected')">Select</button>
-                      <button class="btn-reject" @click="finalDecision(s, 'rejected')">Reject</button>
-                    </div>
-                  </div>
+                <div v-else>
+                  <span class="status-pill" :class="s.status">{{ s.status.toUpperCase() }}</span>
+                </div>
+              </td>
+              <td>
+                <a v-if="s.resume" :href="s.resume" target="_blank" class="link-resume">View</a>
+                <span v-else class="text-muted">None</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-                  <div v-else>
-                    <div :class="['status-badge', s.status]">
-                       <strong style="text-transform: uppercase;">{{ s.status }}</strong>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <a v-if="s.resume" :href="s.resume" target="_blank" class="resume-link">View</a>
-                  <span v-else>No File</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+    <!-- Active Job Drives Header -->
+    <div class="section-title-row">
+      <h2>Active Job Openings</h2>
+      <button class="btn btn-primary" @click="toggleForm">
+        {{ showForm ? "Cancel" : "+ Create New Job Drive" }}
+      </button>
+    </div>
+
+    <!-- Create / Edit Job Form -->
+    <div v-if="showForm" class="modal-card">
+      <h3>{{ editingJobId ? "Edit Job Drive" : "Post New Job Opening" }}</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Job Title</label>
+          <input v-model="newJob.title" placeholder="e.g. Software Engineer" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Location</label>
+          <input v-model="newJob.location" placeholder="e.g. Remote / Bangalore" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Annual Salary (₹ / yr)</label>
+          <input v-model="newJob.salary" type="number" placeholder="1200000" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Years of Experience Required</label>
+          <input v-model.number="newJob.experience" type="number" placeholder="0" class="form-control" />
         </div>
       </div>
-
-      <hr class="divider" />
-
-      <div class="section-header">
-        <h2>Active Job Listings</h2>
-        <button class="create-btn" @click="toggleForm">
-          {{ showForm ? "Cancel" : "+ Create Job" }}
-        </button>
+      <div class="form-group">
+        <label>Job Description</label>
+        <textarea v-model="newJob.description" placeholder="Role responsibilities..." class="form-control textarea"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Required Technical Skills</label>
+        <input v-model="newJob.skills" placeholder="Python, SQL, Vue, Flask" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label>Benefits & Perks</label>
+        <textarea v-model="newJob.benefits" placeholder="Health insurance, performance bonus..." class="form-control textarea-small"></textarea>
       </div>
 
-      <div v-if="showForm" class="form-container">
-        <input v-model="newJob.title" placeholder="Job Title" />
-        <div class="input-row">
-          <input v-model="newJob.location" placeholder="Location" />
-          <input v-model="newJob.salary" placeholder="Salary" type="number" />
-        </div>
-        <textarea v-model="newJob.description" placeholder="Job Description"></textarea>
-        <input v-model="newJob.skills" placeholder="Required Skills" />
-        <input v-model.number="newJob.experience" type="number" placeholder="Years of Experience" />
-        <textarea v-model="newJob.benefits" placeholder="Benefits"></textarea>
+      <button class="btn btn-primary btn-block" @click="saveJob">
+        {{ editingJobId ? "Update Job Drive" : "Publish Job Opening" }}
+      </button>
+    </div>
 
-        <button class="btn-save" @click="saveJob">
-          {{ editingJobId ? "Update Listing" : "Post Job" }}
-        </button>
-      </div>
-
-      <div class="jobs-list">
-        <div v-if="jobs.length === 0" class="empty-state">No jobs yet</div>
-        
-        <div v-for="job in jobs" :key="job.id" class="item-card" :class="{ 'job-closed': job.status === 'closed' }">
-          <div class="item-header">
-            <div>
-              <h3>{{ job.title }} <span :class="['status-tag', job.status]">{{ job.status }}</span></h3>
-              <p class="text-muted">{{ job.location }} • ${{ job.salary }}</p>
-            </div>
-            <div class="item-actions">
-              <button class="btn-icon" @click="viewApplicants(job.id)">Applicants</button>
-              <button v-if="job.status === 'active'" class="btn-icon warning" @click="toggleJobStatus(job, 'close')">Close</button>
-              <button v-else class="btn-icon success-alt" @click="toggleJobStatus(job, 'open')">Reopen</button>
-              <button class="btn-icon" @click="startEdit(job)">Edit</button>
-              <button class="btn-icon delete" @click="deleteJob(job.id)">Delete</button>
-            </div>
+    <!-- Job Cards List -->
+    <div class="jobs-grid">
+      <div v-if="jobs.length === 0" class="empty-text">No job drives posted yet.</div>
+      <div v-for="job in jobs" :key="job.id" class="job-card-item" :class="{ 'closed-card': job.status === 'closed' }">
+        <div class="job-card-header">
+          <div>
+            <h3>{{ job.title }} <span class="status-pill" :class="job.status">{{ job.status }}</span></h3>
+            <p class="job-subtitle">📍 {{ job.location }} • ₹{{ job.salary ? job.salary.toLocaleString() : 'N/A' }}/yr</p>
+          </div>
+          <div class="card-actions">
+            <button class="btn btn-sm btn-outline" @click="viewApplicants(job.id)">Applicants</button>
+            <button v-if="job.status === 'active'" class="btn btn-sm btn-warning" @click="toggleJobStatus(job, 'close')">Close</button>
+            <button v-else class="btn btn-sm btn-success" @click="toggleJobStatus(job, 'open')">Reopen</button>
+            <button class="btn btn-sm btn-outline" @click="startEdit(job)">Edit</button>
+            <button class="btn btn-sm btn-danger" @click="deleteJob(job.id)">Delete</button>
           </div>
         </div>
       </div>
-
-      <p v-if="loading" class="loading-overlay">Loading...</p>
     </div>
   </div>
 </template>
 
 <script>
-import axios from "../axios";
+import { companyService } from "../services/companyService";
+import { adminService } from "../services/adminService";
 
 export default {
+  name: "CompanyDashboard",
   data() {
     return {
-      companyName: localStorage.getItem("name"),
       jobs: [],
       applicants: [],
       shortlistedStudents: [],
-      loading: true,
       reportReady: false,
-      showForm: false,
       exportReady: false,
       reportFile: null,
+      showForm: false,
       showApplicants: false,
       showShortlisted: false,
       editingJobId: null,
       summary: { jobs_posted: 0, candidates_applied: 0, candidates_shortlisted: 0 },
-      newJob: { 
-        title: "", 
-        location: "", 
-        salary: "", 
+      newJob: {
+        title: "",
+        location: "",
+        salary: "",
         description: "",
         skills: "",
-        experience: "",
+        experience: 0,
         benefits: ""
       },
       showProfileForm: false,
-      profileForm: {
-        name: "",
-        email: "",
-        password: ""
-      }
+      profileForm: { name: "", email: "", password: "" }
     };
   },
-  mounted() {
-    this.initData();
+  async mounted() {
+    await this.refreshDashboard();
   },
   methods: {
-    async initData() {
-      await this.fetchSummary();
-      await this.fetchJobs();
-      this.loading = false;
+    async refreshDashboard() {
+      try {
+        this.summary = await companyService.getDashboard();
+        this.jobs = await companyService.getJobs();
+      } catch (err) {
+        console.error("Dashboard load failed", err);
+      }
     },
     async openProfileEdit() {
-      const token = localStorage.getItem("access_token");
-      try {
-        const res = await axios.get("http://127.0.0.1:5000/company/profile", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        this.profileForm.name = res.data.name;
-        this.profileForm.email = res.data.email;
-        this.profileForm.password = "";
-        this.showProfileForm = true;
-      } catch (err) {
-        console.error("Profile load failed:", err);
-      }
+      this.showProfileForm = !this.showProfileForm;
     },
-
-    async fetchJobs() {
-      const token = localStorage.getItem("access_token");
-      const res = await axios.get("http://127.0.0.1:5000/student/jobs", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      this.jobs = res.data;
-    },
-
-    async exportReport() {
-      try 
-      {
-        await fetch("http://127.0.0.1:5000/admin/generate-report");
-
-        this.reportReady = true;
-        alert("Report generated successfully!");
-      } 
-      catch (err) 
-      {
-        alert("Failed to generate report");
-      }
-    },
-
-    downloadReport() 
-    {
-      if (!this.reportReady) {
-        alert("Generate report first");
-        return;
-      }
-      window.open(
-        "http://127.0.0.1:5000/admin/download-report/placement_report_latest.pdf"
-      );
-    },
-
     async updateProfile() {
-      const token = localStorage.getItem("access_token");
       try {
-        await axios.put(
-          "http://127.0.0.1:5000/company/profile",
-          this.profileForm,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        alert("Profile updated successfully");
-        this.companyName = this.profileForm.name;
-        localStorage.setItem("name", this.profileForm.name);
+        await companyService.updateProfile(this.profileForm);
+        alert("Company profile updated!");
         this.showProfileForm = false;
+        await this.refreshDashboard();
       } catch (err) {
-        if (err.response && err.response.data && err.response.data.msg) {
-          alert(err.response.data.msg);
-        } else {
-          alert("Something went wrong");
-        }
-        console.error("Profile update failed:", err);
+        alert(err.response?.data?.msg || "Update failed");
       }
-    },
-    async fetchSummary() {
-      const token = localStorage.getItem("access_token");
-      try {
-        const res = await axios.get("http://127.0.0.1:5000/company/dashboard", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        this.summary = res.data;
-      } catch (err) { console.error("Summary Load Failed:", err); }
     },
     async viewApplicants(jobId = null) {
-      const token = localStorage.getItem("access_token");
       try {
-        const res = await axios.get("http://127.0.0.1:5000/company/applicants", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        this.applicants = jobId 
-          ? res.data.filter(a => a.job_id === jobId)
-          : res.data;
-
+        const data = await companyService.getApplicants();
+        this.applicants = jobId ? data.filter(a => a.job_id === jobId) : data;
         this.showApplicants = true;
         this.showShortlisted = false;
-      } catch (err) { console.error("Applicants View Failed:", err); }
+      } catch (err) {
+        console.error("Applicants fetch failed", err);
+      }
+    },
+    async viewShortlisted() {
+      try {
+        const data = await companyService.getShortlisted();
+        this.shortlistedStudents = data.map(s => ({
+          ...s,
+          temp_date: "",
+          temp_link: "",
+          offer_letter: ""
+        }));
+        this.showShortlisted = true;
+        this.showApplicants = false;
+      } catch (err) {
+        console.error("Shortlist fetch failed", err);
+      }
+    },
+    async handleDecision(applicant, status) {
+      try {
+        await companyService.decideApplication(applicant.application_id, status, applicant.feedback);
+        applicant.status = status;
+        await this.refreshDashboard();
+      } catch (err) {
+        alert("Decision failed");
+      }
+    },
+    async finalDecision(applicant, decision) {
+      try {
+        await companyService.finalDecision(applicant.application_id, decision, applicant.offer_letter);
+        alert("Decision recorded!");
+        await this.viewShortlisted();
+        await this.refreshDashboard();
+      } catch (err) {
+        alert(err.response?.data?.msg || "Decision failed");
+      }
+    },
+    async scheduleInterview(student) {
+      if (!student.temp_date || !student.temp_link) {
+        alert("Please select a date and enter a meeting link.");
+        return;
+      }
+      try {
+        await companyService.scheduleInterview(student.application_id, student.temp_date, student.temp_link);
+        alert("Interview scheduled!");
+        await this.viewShortlisted();
+        await this.refreshDashboard();
+      } catch (err) {
+        alert("Scheduling failed");
+      }
     },
     async exportCompanyCSV() {
-      const token = localStorage.getItem("access_token");
-
       try {
-        await axios.post(
-          "http://127.0.0.1:5000/company/export",
-          {},
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-
+        await companyService.exportCSV();
         this.exportReady = true;
-        alert("Company export started. Wait 2–3 seconds.");
-
+        alert("Export started! Click 'Download CSV' in a few seconds.");
       } catch (err) {
         alert("Export failed");
       }
     },
     downloadCompanyCSV() {
-      if (!this.exportReady) {
-        alert("Please click Export first");
-        return;
-      }
-      
-      const user_id = localStorage.getItem("user_id");
-      alert("Downloading...");
-
-      window.open(
-        `http://127.0.0.1:5000/company/download/export_${user_id}.csv`
-      );
+      const userId = localStorage.getItem("user_id");
+      window.open(`http://127.0.0.1:5000/company/download/export_${userId}.csv`);
     },
-    async viewShortlisted() {
-      const token = localStorage.getItem("access_token");
+    async generateReport() {
       try {
-        const res = await axios.get("http://127.0.0.1:5000/company/shortlisted", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        this.shortlistedStudents = res.data.map(s => ({
-          ...s,
-          temp_date: "",
-          temp_link: "",
-          offer_letter: ""   
-        }));
-        this.showShortlisted = true;
-        this.showApplicants = false;
-      } catch (err) { console.error("Shortlist View Failed:", err); }
-    },
-    async handleDecision(applicant, status) {
-      const token = localStorage.getItem("access_token");
-      try {
-        await axios.post(`http://127.0.0.1:5000/company/application/${applicant.application_id}/decision`, 
-          { status: status, feedback: applicant.feedback },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        applicant.status = status;
-        await this.refreshDashboard();
-      } catch (err) { console.error(err); }
-    },
-    async finalDecision(applicant, decision) {
-    const token = localStorage.getItem("access_token");
-
-    try {
-      await axios.put(
-        `http://127.0.0.1:5000/company/application/${applicant.application_id}/final`,
-        {
-          decision: decision,
-          offer_letter: applicant.offer_letter
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      alert("Final decision saved");
-      await this.viewShortlisted();
-      await this.refreshDashboard();
-
-    } catch (err) {
-      alert(err.response?.data?.msg || "Error saving decision");
-    }
-  },
-    async scheduleInterview(student) {
-      const token = localStorage.getItem("access_token");
-      if (!student.temp_date || !student.temp_link) {
-        alert("Please select a date and enter a link.");
-        return;
-      }
-      try {
-        await axios.put(
-          `http://127.0.0.1:5000/company/application/${student.application_id}/schedule`,
-          { date: student.temp_date, link: student.temp_link },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        alert("Interview Scheduled Successfully");
-        await this.viewShortlisted();
-        await this.refreshDashboard();
-      } 
-      catch (err) {
-         console.error("Interview Scheduling Failed:", err); 
+        await adminService.generateReport();
+        this.reportFile = "placement_report_latest.pdf";
+        alert("Report generated!");
+      } catch (err) {
+        alert("Report generation failed");
       }
     },
-    async fetchJobs() {
-      const token = localStorage.getItem("access_token");
-      try {
-        const res = await axios.get("http://127.0.0.1:5000/company/jobs", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        this.jobs = res.data;
-      } catch (err) { this.$router.push("/login"); }
-    },
-    async refreshDashboard() {
-      await this.fetchSummary();
-      await this.fetchJobs();
-
-      if (this.showApplicants) {
-        await this.viewApplicants();
-      }
-
-      if (this.showShortlisted) {
-        await this.viewShortlisted();
-      }
+    downloadReport() {
+      window.open("http://127.0.0.1:5000/admin/download-report/placement_report_latest.pdf");
     },
     async saveJob() {
-      const token = localStorage.getItem("access_token");
-
-      if (!Number.isInteger(this.newJob.experience) || this.newJob.experience < 0) {
-        alert("Experience must be a valid non-negative integer");
+      if (!this.newJob.title || !this.newJob.description || !this.newJob.skills) {
+        alert("Title, description, and skills are required.");
         return;
       }
-      if (
-        !this.newJob.title ||
-        !this.newJob.description ||
-        !this.newJob.skills ||
-        !this.newJob.experience ||
-        !this.newJob.benefits
-      ) {
-        alert("All fields are required");
-        return;
-      }
-
       try {
-        const payload = {
-          ...this.newJob,
-          salary: parseInt(this.newJob.salary) || 0
-        };
-
         if (this.editingJobId) {
-          await axios.put(
-            `http://127.0.0.1:5000/company/jobs/${this.editingJobId}`,
-            payload,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
+          await companyService.updateJob(this.editingJobId, this.newJob);
         } else {
-          await axios.post(
-            "http://127.0.0.1:5000/company/jobs",
-            payload,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
+          await companyService.createJob(this.newJob);
         }
-        alert("Job saved successfully");
-
+        alert("Job saved!");
         this.showForm = false;
         await this.refreshDashboard();
-
       } catch (err) {
-        alert(err.response?.data?.msg || "Failed to save job");
+        alert(err.response?.data?.msg || "Job save failed");
       }
     },
     async toggleJobStatus(job, action) {
-      const token = localStorage.getItem("access_token");
       try {
-        await axios.put(`http://127.0.0.1:5000/company/jobs/${job.id}/${action}`, {}, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        job.status = (action === 'close') ? 'closed' : 'active';
+        if (action === 'close') {
+          await companyService.closeJob(job.id);
+        } else {
+          await companyService.openJob(job.id);
+        }
         await this.refreshDashboard();
-      } 
-      catch (err) { 
-        console.error(err); 
+      } catch (err) {
+        alert("Status update failed");
+      }
+    },
+    async deleteJob(jobId) {
+      if (!confirm("Are you sure you want to delete this job drive?")) return;
+      try {
+        await companyService.deleteJob(jobId);
+        await this.refreshDashboard();
+      } catch (err) {
+        alert("Delete failed");
       }
     },
     startEdit(job) {
@@ -523,289 +402,133 @@ export default {
       this.editingJobId = job.id;
       this.showForm = true;
     },
-    async deleteJob(jobId) {
-      const token = localStorage.getItem("access_token");
-      if (!confirm("Delete this job?")) return;
-      try {
-        await axios.delete(`http://127.0.0.1:5000/company/jobs/${jobId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        await this.fetchJobs();
-        await this.fetchSummary();
-      } catch (err) { console.error(err); }
-    },
-    toggleForm() { 
-      this.editingJobId = null; 
-      this.newJob = { title: "", location: "", salary: "", description: "", skills: "", experience: "", benefits: "" }; 
-      this.showForm = !this.showForm; 
-    },
-    logout() { 
-      localStorage.clear(); 
-      this.$router.push("/login"); 
+    toggleForm() {
+      this.editingJobId = null;
+      this.newJob = { title: "", location: "", salary: "", description: "", skills: "", experience: 0, benefits: "" };
+      this.showForm = !this.showForm;
     }
   }
 };
 </script>
 
 <style scoped>
+.dashboard-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
 
-  .action-bar {
-    background: white;
-    padding: 1rem 2rem;
-    border-bottom: 1px solid #e2e8f0;
-    display: flex;
-    gap: 2rem;
-    align-items: center;
-  }
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
 
-  .action-group {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-  }
+.header-text h1 { font-size: 1.8rem; margin: 0; color: white; }
+.header-text p { margin: 0.2rem 0 0 0; color: #94a3b8; font-size: 0.9rem; }
+.header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
-  .action-label {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: #64748b;
-    text-transform: uppercase;
-  }
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
 
-  .btn-secondary {
-    background: #f1f5f9;
-    color: #475569;
-    border: 1px solid #e2e8f0;
-  }
+.stat-card {
+  background: rgba(18, 24, 38, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
 
-  .btn-report {
-    background: #4f46e5;
-    color: white;
-  }
+.stat-card.clickable {
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s;
+}
 
-  .btn-report:disabled {
-    background: #94a3b8;
-    cursor: not-allowed;
-  }
+.stat-card.clickable:hover {
+  transform: translateY(-3px);
+  border-color: #3b82f6;
+}
 
-  .edit-profile-btn {
-    background: #334155;
-    color: white;
-  }
+.stat-icon { font-size: 2rem; }
+.stat-label { margin: 0; font-size: 0.8rem; color: #94a3b8; font-weight: 600; }
+.stat-value { margin: 0.2rem 0; font-size: 1.75rem; color: white; }
+.stat-link { font-size: 0.78rem; color: #60a5fa; font-weight: 600; }
 
-  .logout-btn {
-    background: #fee2e2;
-    color: #b91c1c;
-  }
+.modal-card {
+  background: rgba(18, 24, 38, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
 
-  .dashboard {
-    background: #f8fafc;
-    min-height: 100vh;
-    font-family: sans-serif;
-    color: #1e293b;
-  }
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
 
-  .main-content {
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 2rem;
-  }
+.modal-header h3 { margin: 0; color: white; }
+.btn-close { background: transparent; border: none; color: #ef4444; font-size: 1.2rem; cursor: pointer; }
 
-  .top-bar {
-    background: white;
-    padding: 1rem 2rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid #e2e8f0;
-  }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+.form-group { display: flex; flex-direction: column; gap: 0.3rem; text-align: left; margin-bottom: 0.75rem; }
+.form-group label { font-size: 0.8rem; color: #cbd5e1; font-weight: 600; }
 
-  .cards-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2.5rem;
-  }
+.form-control {
+  padding: 0.65rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(10, 14, 23, 0.6);
+  color: white;
+  font-size: 0.9rem;
+  outline: none;
+}
+.form-control.textarea { min-height: 90px; }
+.form-control.textarea-small { min-height: 60px; }
 
-  .card {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
-    text-align: center;
-  }
+.btn { padding: 0.6rem 1rem; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer; border: none; }
+.btn-primary { background: #3b82f6; color: white; }
+.btn-purple { background: #8b5cf6; color: white; }
+.btn-success { background: #10b981; color: white; }
+.btn-danger { background: #ef4444; color: white; }
+.btn-warning { background: #f59e0b; color: white; }
+.btn-outline { background: transparent; border: 1px solid rgba(255, 255, 255, 0.2); color: #cbd5e1; }
+.btn-block { width: 100%; margin-top: 1rem; }
+.btn-sm { padding: 0.35rem 0.65rem; font-size: 0.78rem; }
 
-  .card.clickable {
-    cursor: pointer;
-    transition: transform 0.2s;
-  }
+.applicant-item {
+  background: rgba(10, 14, 23, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+}
 
-  .card.clickable:hover {
-    transform: translateY(-4px);
-    border-color: #4f46e5;
-  }
+.link-resume { color: #60a5fa; font-weight: 600; text-decoration: none; font-size: 0.85rem; }
 
-  .item-card {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 10px;
-    border: 1px solid #e2e8f0;
-    margin-bottom: 1rem;
-  }
+.section-title-row { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; }
+.section-title-row h2 { color: white; margin: 0; }
 
-  .interview-input {
-    width: 100%;
-    padding: 8px;
-    margin-bottom: 8px;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
-    box-sizing: border-box;
-  }
+.jobs-grid { display: flex; flex-direction: column; gap: 0.75rem; }
+.job-card-item { background: rgba(18, 24, 38, 0.75); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 1rem 1.25rem; }
+.job-card-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+.job-card-header h3 { margin: 0; color: white; font-size: 1.1rem; }
+.job-subtitle { margin: 0.2rem 0 0 0; font-size: 0.85rem; color: #94a3b8; }
+.card-actions { display: flex; gap: 0.4rem; }
 
-  .table-container {
-    overflow-x: auto;
-    background: white;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-  }
+.status-pill { font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 12px; font-weight: 700; text-transform: uppercase; }
+.status-pill.active { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+.status-pill.closed { background: rgba(239, 68, 68, 0.2); color: #f87171; }
 
-  .styled-table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  .styled-table th,
-  .styled-table td {
-    padding: 12px 15px;
-    text-align: left;
-    border-bottom: 1px solid #f1f5f9;
-  }
-
-  .styled-table th {
-    background: #f8fafc;
-    color: #64748b;
-    font-size: 0.8rem;
-    text-transform: uppercase;
-  }
-
-  .resume-link {
-    color: #4f46e5;
-    text-decoration: none;
-    font-weight: bold;
-  }
-
-  .status-tag {
-    font-size: 0.7rem;
-    padding: 2px 8px;
-    border-radius: 12px;
-    text-transform: uppercase;
-    vertical-align: middle;
-  }
-
-  .status-tag.active {
-    background: #dcfce7;
-    color: #166534;
-  }
-
-  .status-tag.closed {
-    background: #fee2e2;
-    color: #991b1b;
-  }
-
-  button {
-    border-radius: 6px;
-    padding: 0.6rem 1.2rem;
-    cursor: pointer;
-    font-weight: 600;
-    border: none;
-  }
-
-  .btn-shortlist {
-    background: #22c55e;
-    color: white;
-  }
-
-  .btn-reject {
-    background: #ef4444;
-    color: white;
-  }
-
-  .create-btn {
-    background: #4f46e5;
-    color: white;
-  }
-
-  .btn-save {
-    background: #1e293b;
-    color: white;
-    width: 100%;
-    margin-top: 10px;
-  }
-
-  .btn-icon {
-    background: #f1f5f9;
-    font-size: 0.8rem;
-    margin-left: 5px;
-    padding: 5px 10px;
-  }
-
-  .form-container {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 12px;
-    border: 1px solid #4f46e5;
-    margin-bottom: 2rem;
-  }
-
-  .form-container input,
-  .form-container textarea {
-    width: 100%;
-    padding: 0.8rem;
-    margin: 0.5rem 0;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    box-sizing: border-box;
-  }
-
-  .input-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-
-  .section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin: 2rem 0 1rem;
-  }
-
-  .divider {
-    border: 0;
-    border-top: 1px solid #e2e8f0;
-    margin: 3rem 0;
-  }
-
-  .status-badge {
-    margin-top: 1rem;
-    padding: 1rem;
-    border-radius: 8px;
-  }
-
-  .status-badge.shortlisted {
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    color: #166534;
-  }
-
-  .status-badge.rejected {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: #991b1b;
-  }
-
-  .status-badge.selected {
-    background: #eef2ff;
-    border: 1px solid #c7d2fe;
-    color: #3730a3;
-  }
+.data-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.85rem; }
+.data-table th, .data-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.08); color: #cbd5e1; }
+.data-table th { background: rgba(10, 14, 23, 0.6); color: #94a3b8; font-weight: 600; }
 </style>

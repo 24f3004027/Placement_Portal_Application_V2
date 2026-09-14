@@ -1,528 +1,539 @@
 <template>
-  <div class="dashboard">
-    <div class="top-bar">
-      <div class="branding">
-        <h1>Welcome, {{ name }}</h1>
-        <p class="subtitle">Student Placement Portal</p>
+  <div class="dashboard-page">
+    <div class="dashboard-header">
+      <div class="header-text">
+        <h1>Welcome, {{ name || 'Student' }}</h1>
+        <p>Explore placement drives, track applications, and manage your academic profile</p>
       </div>
       
       <div class="header-actions">
-        <button class="btn-report" @click="exportReport">📤 Export Report</button>
-        <button class="btn-report" @click="downloadReport">📥 Download Report</button>
+        <button class="btn btn-purple" @click="exportReport">📊 Generate Report</button>
+        <button class="btn btn-outline" @click="downloadReport">📥 PDF Report</button>
 
         <template v-if="view === 'applications'">
-          <button class="btn-outline" @click="exportData">📤 Export CSV</button>
-          <button v-if="exportReady" class="btn-success" @click="downloadCSV">💾 Download</button>
+          <button class="btn btn-outline" @click="exportData">📤 Export CSV</button>
+          <button v-if="exportReady" class="btn btn-success" @click="downloadCSV">💾 Download CSV</button>
         </template>
         
-        <button class="btn-primary" @click="view = 'profile'">Edit Profile</button>
-        <button class="btn-danger" @click="logout">Logout</button>
+        <button class="btn btn-primary" @click="view = 'profile'">⚙️ Edit Profile</button>
       </div>
     </div>
 
-    <div class="navigation-menu">
-      <button :class="{ active: view === 'jobs' }" @click="view = 'jobs'">Browse Jobs</button>
-      <button :class="{ active: view === 'applications' }" @click="view = 'applications'">My Applications</button>
-      <button :class="{ active: view === 'profile' }" @click="view = 'profile'">My Profile</button>
+    <div class="tab-navigation">
+      <button :class="['tab-btn', { active: view === 'jobs' }]" @click="view = 'jobs'">
+        💼 Browse Jobs ({{ jobs.length }})
+      </button>
+      <button :class="['tab-btn', { active: view === 'applications' }]" @click="view = 'applications'">
+        📑 My Applications ({{ applications.length }})
+      </button>
+      <button :class="['tab-btn', { active: view === 'profile' }]" @click="view = 'profile'">
+        👤 My Profile
+      </button>
     </div>
 
-    <div v-if="view === 'jobs'" class="view-container">
-      <div class="search-section">
-        <input v-model="searchQuery" placeholder="🔍 Search by title, skills, or company..." class="main-search" />
+    <!-- Browse Jobs Tab -->
+    <div v-if="view === 'jobs'" class="tab-content">
+      <div class="search-bar-container">
+        <input 
+          v-model="searchQuery" 
+          placeholder="🔍 Search opportunities by job title, skills, or company name..." 
+          class="search-input" 
+        />
       </div>
 
-      <div class="section-header">
-        <h2>Available Opportunities</h2>
-      </div>
-      
-      <div v-for="job in filteredJobs" :key="job.id" class="job-card">
-        <div class="job-info">
-          <h3>{{ job.title }}</h3>
-          <p class="description">{{ job.description }}</p>
-          <p class="skills-tag"><b>Required:</b> {{ job.skills }}</p>
-        </div>
-        <button 
-          @click="apply(job.id)" 
-          :class="['apply-btn', { applied: job.applied }]"
-          :disabled="job.applied"
-        >
-          {{ job.applied ? "Applied" : "Apply Now" }}
-        </button>
-      </div>
-    </div>
-
-    <div v-if="view === 'applications'" class="view-container">
-      <div class="section-header">
-        <h2>My Applications</h2>
-      </div>
-
-      <div v-for="app in applications" :key="app.id" class="app-card">
-        <div class="app-header">
-          <h3>{{ app.job_title }}</h3>
-          <span :class="['status-badge', app.status]">{{ app.status.toUpperCase() }}</span>
-        </div>
-
-        <div class="app-body">
-          <p v-if="app.interview_date">📅 Interview: {{ app.interview_date }}</p>
-          <p v-if="app.feedback">💬 Feedback: {{ app.feedback }}</p>
-          <a v-if="app.offer_letter && app.status === 'selected'" :href="app.offer_letter" target="_blank" class="offer-link">
-            📄 Download Offer Letter
-          </a>
+      <div class="cards-grid">
+        <div v-for="job in filteredJobs" :key="job.id" class="data-card job-card">
+          <div class="card-main">
+            <div class="card-title-row">
+              <h3>{{ job.title }}</h3>
+              <span class="company-tag">🏢 {{ job.company_name }}</span>
+            </div>
+            <p class="card-desc">{{ job.description }}</p>
+            <div class="card-meta">
+              <span>📍 {{ job.location || 'Remote' }}</span>
+              <span>💰 ₹{{ job.salary ? job.salary.toLocaleString() : 'N/A' }}/yr</span>
+              <span>💼 {{ job.experience }} yrs exp</span>
+            </div>
+            <p class="skills-list" v-if="job.skills"><strong>Skills:</strong> {{ job.skills }}</p>
+          </div>
+          <button 
+            @click="apply(job.id)" 
+            :class="['btn', job.applied ? 'btn-applied' : 'btn-primary']"
+            :disabled="job.applied"
+          >
+            {{ job.applied ? "✓ Applied" : "Apply Now" }}
+          </button>
         </div>
       </div>
     </div>
 
-    <div v-if="view === 'profile'" class="view-container">
-      <div class="profile-card">
+    <!-- Applications Tab -->
+    <div v-if="view === 'applications'" class="tab-content">
+      <div class="cards-list">
+        <div v-for="app in applications" :key="app.id" class="data-card app-card">
+          <div class="app-header-row">
+            <h3>{{ app.job_title }}</h3>
+            <span :class="['status-badge', app.status]">{{ (app.status || 'applied').toUpperCase() }}</span>
+          </div>
+
+          <div class="app-details">
+            <p v-if="app.interview_date">📅 <strong>Interview Scheduled:</strong> {{ app.interview_date }}</p>
+            <p v-if="app.interview_link">🔗 <strong>Meeting Link:</strong> <a :href="app.interview_link" target="_blank">{{ app.interview_link }}</a></p>
+            <p v-if="app.feedback">💬 <strong>Feedback:</strong> {{ app.feedback }}</p>
+            <a v-if="app.offer_letter && (app.status === 'selected' || app.status === 'offer')" :href="app.offer_letter" target="_blank" class="offer-link">
+              📄 Download Offer Letter
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Profile Tab -->
+    <div v-if="view === 'profile'" class="tab-content">
+      <div class="profile-card-container">
         <div class="form-section">
-          <h2 class="form-heading">Personal Information</h2>
+          <h3>Personal Information</h3>
           <div class="form-grid">
-            <div class="field">
+            <div class="form-group">
               <label>Full Name</label>
-              <input v-model="profile.name" placeholder="Full Name" />
+              <input v-model="profile.name" placeholder="Full Name" class="form-control" />
             </div>
-            <div class="field">
+            <div class="form-group">
               <label>Email Address</label>
-              <input v-model="profile.email" placeholder="Email" />
+              <input v-model="profile.email" placeholder="Email" class="form-control" />
             </div>
-            <div class="field">
+            <div class="form-group">
               <label>Department</label>
-              <input v-model="profile.department" placeholder="e.g. Computer Science" />
+              <input v-model="profile.department" placeholder="e.g. Computer Science" class="form-control" />
             </div>
-            <div class="field">
+            <div class="form-group">
               <label>Current CGPA</label>
-              <input v-model="profile.cgpa" placeholder="0.00" />
+              <input v-model="profile.cgpa" placeholder="8.5" class="form-control" />
             </div>
           </div>
         </div>
 
         <div class="form-section">
-          <h2 class="form-heading">Academic & Professional</h2>
-          <div class="vertical-fields">
-            <div class="field">
+          <h3>Academic & Professional Details</h3>
+          <div class="form-stack">
+            <div class="form-group">
               <label>Education</label>
-              <input v-model="profile.education" placeholder="Degree, University" />
+              <input v-model="profile.education" placeholder="Degree, University" class="form-control" />
             </div>
-            <div class="field">
+            <div class="form-group">
               <label>Technical Skills</label>
-              <input v-model="profile.skills" placeholder="Java, Python, Vue, etc." />
+              <input v-model="profile.skills" placeholder="Java, Python, Vue, Flask, Redis" class="form-control" />
             </div>
-            <div class="field">
-              <label>Work/Project Experience</label>
-              <textarea v-model="profile.experience" placeholder="Describe your experience..."></textarea>
+            <div class="form-group">
+              <label>Work / Project Experience</label>
+              <textarea v-model="profile.experience" placeholder="Describe your key projects and internships..." class="form-control textarea"></textarea>
             </div>
-            <div class="field">
+            <div class="form-group">
               <label>Resume Link</label>
-              <input v-model="profile.resume" placeholder="Public Link (Google Drive/GitHub)" />
+              <input v-model="profile.resume" placeholder="Public Google Drive / GitHub Resume URL" class="form-control" />
             </div>
           </div>
         </div>
 
-        <button class="btn-save" @click="updateProfile">Save Profile Changes</button>
+        <button class="btn btn-save" @click="updateProfile">💾 Save Profile Changes</button>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-  import axios from "../axios";
+import { studentService } from "../services/studentService";
+import { adminService } from "../services/adminService";
 
-  export default {
-    data() {
-      return {
-        name: localStorage.getItem("name"),
-        view: "jobs",
-        searchQuery: "",
-        reportReady: false,
-        exportReady: false,
-        jobs: [],
-        reportFile: null,
-        appliedJobs: new Set(),
-        applications: [],
-        profile: {
-          name: "",
-          email: "",
-          password: "",
-          education: "",
-          skills: "",
-          experience: "",
-          department: "",
-          cgpa: "",
-          resume: ""
-        }
-      };
-    },
-    computed: {
-      filteredJobs() {
-        return this.jobs.filter(job =>
-          job.title.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-          job.skills?.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-          job.company_name?.toLowerCase().includes(this.searchQuery.toLowerCase())
-        );
+export default {
+  name: "StudentDashboard",
+  data() {
+    return {
+      name: localStorage.getItem("user_name") || "",
+      view: "jobs",
+      searchQuery: "",
+      reportReady: false,
+      exportReady: false,
+      jobs: [],
+      applications: [],
+      profile: {
+        name: "",
+        email: "",
+        education: "",
+        skills: "",
+        experience: "",
+        department: "",
+        cgpa: "",
+        resume: ""
+      }
+    };
+  },
+  computed: {
+    filteredJobs() {
+      const q = this.searchQuery.toLowerCase();
+      return this.jobs.filter(job =>
+        (job.title && job.title.toLowerCase().includes(q)) ||
+        (job.skills && job.skills.toLowerCase().includes(q)) ||
+        (job.company_name && job.company_name.toLowerCase().includes(q))
+      );
+    }
+  },
+  async mounted() {
+    await this.fetchJobs();
+    await this.fetchApplications();
+    await this.fetchProfile();
+
+    this.interval = setInterval(() => {
+      if (this.view === "applications") {
+        this.fetchApplications();
+      }
+    }, 5000);
+  },
+  beforeUnmount() {
+    if (this.interval) clearInterval(this.interval);
+  },
+  methods: {
+    async fetchJobs() {
+      try {
+        this.jobs = await studentService.getJobs();
+      } catch (err) {
+        console.error("Failed to fetch jobs", err);
       }
     },
-
-    mounted() {
-      this.fetchJobs();
-      this.fetchApplications();
-      this.fetchProfile();
-
-      this.interval = setInterval(() => {
-        if (this.view === "applications") {
-          this.fetchApplications();
-        }
-      }, 5000);
+    async fetchApplications() {
+      try {
+        this.applications = await studentService.getApplications();
+      } catch (err) {
+        console.error("Failed to fetch applications", err);
+      }
     },
-
-    beforeUnmount() {
-      clearInterval(this.interval);
+    async fetchProfile() {
+      try {
+        this.profile = await studentService.getProfile();
+      } catch (err) {
+        console.error("Failed to fetch profile", err);
+      }
     },
-
-    methods: {
-     async fetchJobs() {
-        const token = localStorage.getItem("access_token");
-
-        const res = await axios.get("http://127.0.0.1:5000/student/jobs", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        this.jobs = res.data;
-      },
-
-      async exportReport() {
-        try 
-        {
-          await fetch("http://127.0.0.1:5000/admin/generate-report");
-
-          this.reportReady = true;
-          alert("Report generated successfully!");
-        } 
-        catch (err) 
-        {
-          alert("Failed to generate report");
-        }
-      },
-
-      downloadReport() 
-      {
-          if (!this.reportReady)
-           {
-              alert("Generate report first");
-              return;
-            }
-        window.open(
-          "http://127.0.0.1:5000/admin/download-report/placement_report_latest.pdf"
-        );
-      },
-
-      async apply(jobId) {
-        const token = localStorage.getItem("access_token");
-        if (!this.profile.cgpa) {
-          alert("Please fill your CGPA before applying");
-          this.view = "profile";
-          return;
-        }
-        try {
-          const res = await axios.post(
-            `http://127.0.0.1:5000/student/apply/${jobId}`,
-            {},
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-
-            alert(res.data.msg || "Applied successfully");
-
-            const job = this.jobs.find(j => j.id === jobId);
-            if (job) job.applied = true;
-
-          } catch (err) {
-            alert(err.response?.data?.msg || "Apply failed");
-          }
-
-          await this.fetchApplications();
-          await this.fetchJobs();
-          
-      },
-      async exportData() {
-        const token = localStorage.getItem("access_token");
-        try {
-          await axios.post(
-            "http://127.0.0.1:5000/student/export",
-            {},
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-
+    async apply(jobId) {
+      if (!this.profile.cgpa) {
+        alert("Please fill in your CGPA in your profile before applying.");
+        this.view = "profile";
+        return;
+      }
+      try {
+        const res = await studentService.applyJob(jobId);
+        alert(res.msg || "Applied successfully!");
+        await this.fetchJobs();
+        await this.fetchApplications();
+      } catch (err) {
+        alert(err.response?.data?.msg || "Application failed.");
+      }
+    },
+    async exportReport() {
+      try {
+        await adminService.generateReport();
+        this.reportReady = true;
+        alert("Placement report generated successfully!");
+      } catch (err) {
+        alert("Failed to generate report.");
+      }
+    },
+    downloadReport() {
+      if (!this.reportReady) {
+        alert("Please click 'Generate Report' first.");
+        return;
+      }
+      window.open("http://127.0.0.1:5000/admin/download-report/placement_report_latest.pdf");
+    },
+    async exportData() {
+      try {
+        await studentService.exportCSV();
         this.exportReady = true;
-        alert("Export started!");
-
-        } 
-        catch (err) {
-          alert("Export failed");
-        }
-      },
-      async downloadCSV() {
-        if (!this.exportReady) {
-          alert("Please click Export first");
-          return;
-        }
-
-        const token = localStorage.getItem("access_token");
-        const user_id = localStorage.getItem("user_id");
-
-        try {
-          alert("Downloading...");
-
-          const response = await fetch(
-            `http://127.0.0.1:5000/student/download/export_${user_id}.csv`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`
-              }
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error("Download failed");
-          }
-
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `export_${user_id}.csv`;
-          a.click();
-
-          window.URL.revokeObjectURL(url);
-        } 
-        catch (err) {
-          console.error(err);
-          alert("Download failed");
-        }
-      },
-      async fetchApplications() {
-        const token = localStorage.getItem("access_token");
-        const res = await axios.get("http://127.0.0.1:5000/student/applications", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        this.applications = res.data;
-        this.appliedJobs = new Set(res.data.map(a => a.job_id));
-      },
-
-      async fetchProfile() {
-        const token = localStorage.getItem("access_token");
-        const res = await axios.get("http://127.0.0.1:5000/student/profile", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        this.profile = res.data;
-      },
-
-      async updateProfile() {
-        const token = localStorage.getItem("access_token");
-
-        try {
-          await axios.put(
-            "http://127.0.0.1:5000/student/profile",
-            this.profile,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-
-          await this.fetchProfile();
-          localStorage.setItem("name", this.profile.name);
-          this.name = this.profile.name;
-
-          alert("Profile updated");
-
-        } catch (err) {
-          alert(err.response?.data?.msg || "Update failed");
-        }
-      },
-
-      logout() {
-        localStorage.clear();
-        this.$router.push("/login");
+        alert("CSV Export task started! Click 'Download CSV' when ready.");
+      } catch (err) {
+        alert("Export failed.");
       }
     },
-    watch: {
-      view(newVal) {
-        if (newVal === "applications") this.fetchApplications();
-        if (newVal === "jobs") this.fetchJobs();
-        if (newVal === "profile") this.fetchProfile();
+    downloadCSV() {
+      const userId = localStorage.getItem("user_id");
+      window.open(`http://127.0.0.1:5000/student/download/export_${userId}.csv`);
+    },
+    async updateProfile() {
+      try {
+        await studentService.updateProfile(this.profile);
+        await this.fetchProfile();
+        localStorage.setItem("user_name", this.profile.name);
+        this.name = this.profile.name;
+        alert("Profile updated successfully!");
+      } catch (err) {
+        alert(err.response?.data?.msg || "Update failed.");
       }
     }
-  };
+  },
+  watch: {
+    view(newVal) {
+      if (newVal === "applications") this.fetchApplications();
+      if (newVal === "jobs") this.fetchJobs();
+      if (newVal === "profile") this.fetchProfile();
+    }
+  }
+};
 </script>
 
 <style scoped>
-
-.btn-report {
-  background: #4f46e5; 
-  color: white;
+.dashboard-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
-.btn-report:hover {
-  background: #4338ca;
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.header-text h1 {
+  font-size: 1.8rem;
+  margin: 0;
+  color: #ffffff;
+}
+
+.header-text p {
+  margin: 0.2rem 0 0 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
 }
 
 .header-actions {
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap; 
-  justify-content: flex-end;
+  gap: 0.6rem;
+  flex-wrap: wrap;
 }
 
-.dashboard {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 40px 20px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  color: #2d3748;
-  background-color: #f7fafc;
-  min-height: 100vh;
-}
-
-.top-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-}
-
-.branding h1 { margin: 0; font-size: 1.8rem; color: #1a202c; }
-.subtitle { margin: 4px 0 0; color: #718096; font-size: 0.9rem; }
-
-.header-actions { display: flex; gap: 10px; }
-
-button {
-  padding: 10px 16px;
-  border-radius: 8px;
+.btn {
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
   font-weight: 600;
+  font-size: 0.85rem;
   cursor: pointer;
   border: none;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
-.btn-primary { background: #3182ce; color: white; }
-.btn-primary:hover { background: #2b6cb0; }
-.btn-outline { background: white; border: 1px solid #cbd5e0; color: #4a5568; }
-.btn-success { background: #38a169; color: white; }
-.btn-danger { background: #fff5f5; color: #e53e3e; border: 1px solid #feb2b2; }
+.btn-primary { background: #3b82f6; color: white; }
+.btn-primary:hover { background: #2563eb; }
 
-.navigation-menu {
+.btn-purple { background: #8b5cf6; color: white; }
+.btn-purple:hover { background: #7c3aed; }
+
+.btn-outline { background: transparent; border: 1px solid rgba(255, 255, 255, 0.2); color: #cbd5e1; }
+.btn-outline:hover { background: rgba(255, 255, 255, 0.1); }
+
+.btn-success { background: #10b981; color: white; }
+.btn-success:hover { background: #059669; }
+
+.btn-applied { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); cursor: default; }
+
+.tab-navigation {
   display: flex;
-  background: white;
-  padding: 8px;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  margin-bottom: 30px;
+  gap: 0.5rem;
+  background: rgba(18, 24, 38, 0.6);
+  padding: 0.4rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.navigation-menu button {
+.tab-btn {
   flex: 1;
+  padding: 0.65rem;
   background: transparent;
-  color: #718096;
+  border: none;
+  color: #94a3b8;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.navigation-menu button.active {
-  background: #3182ce;
+.tab-btn.active {
+  background: #3b82f6;
   color: white;
 }
 
-.view-container { animation: fadeIn 0.3s ease-in; }
-.main-search {
+.search-input {
   width: 100%;
-  padding: 14px;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
-  font-size: 1rem;
-  margin-bottom: 25px;
+  padding: 0.85rem 1.2rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(18, 24, 38, 0.8);
+  color: white;
+  font-size: 0.95rem;
+  outline: none;
   box-sizing: border-box;
 }
 
-.job-card, .app-card {
-  background: white;
-  padding: 24px;
-  border-radius: 12px;
-  margin-bottom: 16px;
-  border: 1px solid #e2e8f0;
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.data-card {
+  background: rgba(18, 24, 38, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1.25rem;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.card-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.card-title-row h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #f8fafc;
+}
+
+.company-tag {
+  font-size: 0.78rem;
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.15);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.card-desc {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  line-height: 1.4;
+  margin: 0 0 0.75rem 0;
+}
+
+.card-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: #cbd5e1;
+}
+
+.skills-list {
+  font-size: 0.8rem;
+  color: #a7f3d0;
+  margin: 0.5rem 0 0 0;
+}
+
+.app-card {
+  align-items: stretch;
+}
+
+.app-header-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.app-card { flex-direction: column; align-items: flex-start; }
-
 .status-badge {
-  padding: 4px 10px;
-  border-radius: 6px;
+  padding: 0.25rem 0.6rem;
+  border-radius: 20px;
   font-size: 0.75rem;
-  font-weight: bold;
-}
-.status-badge.applied { background: #ebf8ff; color: #2b6cb0; }
-.status-badge.selected { background: #f0fff4; color: #2f855a; }
-.status-badge.rejected { background: #fff5f5; color: #c53030; }
-
-.profile-card {
-  background: white;
-  padding: 40px;
-  border-radius: 15px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  font-weight: 700;
 }
 
-.form-section { margin-bottom: 35px; }
-.form-heading {
-  font-size: 1.2rem;
-  margin-bottom: 20px;
-  color: #2d3748;
-  border-left: 4px solid #3182ce;
-  padding-left: 15px;
+.status-badge.applied { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+.status-badge.selected, .status-badge.offer { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+.status-badge.rejected { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+.status-badge.shortlisted, .status-badge.interview { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+
+.app-details {
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.offer-link {
+  color: #34d399;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.profile-card-container {
+  background: rgba(18, 24, 38, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 2rem;
+  border-radius: 12px;
+}
+
+.form-section {
+  margin-bottom: 2rem;
+}
+
+.form-section h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: #60a5fa;
+  border-left: 3px solid #3b82f6;
+  padding-left: 0.6rem;
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: 1rem;
 }
 
-.vertical-fields {
+.form-stack {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 1rem;
 }
 
-.field { display: flex; flex-direction: column; gap: 8px; }
-.field label { font-size: 0.85rem; font-weight: 700; color: #4a5568; }
-
-input, textarea {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #cbd5e0;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  box-sizing: border-box; 
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  text-align: left;
 }
-textarea { min-height: 100px; resize: vertical; }
+
+.form-group label {
+  font-size: 0.8rem;
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.form-control {
+  padding: 0.65rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(10, 14, 23, 0.6);
+  color: white;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.form-control.textarea {
+  min-height: 90px;
+  resize: vertical;
+}
 
 .btn-save {
   width: 100%;
-  padding: 15px;
-  background: #2d3748;
+  padding: 0.85rem;
+  background: #3b82f6;
   color: white;
   font-size: 1rem;
-  margin-top: 10px;
 }
-
-.btn-save:hover { background: #1a202c; }
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@media (max-width: 768px) {
-  .form-grid { grid-template-columns: 1fr; }
-  .top-bar { flex-direction: column; align-items: flex-start; gap: 15px; }
-  .job-card { flex-direction: column; align-items: flex-start; gap: 15px; }
-}
-
 </style>
